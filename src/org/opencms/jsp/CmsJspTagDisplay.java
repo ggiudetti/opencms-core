@@ -73,6 +73,162 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     /** The serial version id. */
     private static final long serialVersionUID = 2285680951218629093L;
 
+    /**
+     * Includes the formatter rendering the given element.<p>
+     *
+     * @param element the element
+     * @param formatter the formatter configuration bean
+     * @param editable if editable
+     * @param canCreate if new resources may be created
+     * @param canDelete if the resource may be deleted
+     * @param creationSiteMap the create location sub site
+     * @param postCreateHandler the post create handler
+     * @param context the page context
+     * @param request the request
+     * @param response the response
+     */
+    public static void displayAction(
+        CmsContainerElementBean element,
+        I_CmsFormatterBean formatter,
+        boolean editable,
+        boolean canCreate,
+        boolean canDelete,
+        boolean cacheable,
+        String creationSiteMap,
+        String postCreateHandler,
+        PageContext context,
+        ServletRequest request,
+        ServletResponse response) {
+
+        if (CmsFlexController.isCmsRequest(request)) {
+            // this will always be true if the page is called through OpenCms
+            CmsObject cms = CmsFlexController.getCmsObject(request);
+            Locale locale = cms.getRequestContext().getLocale();
+            boolean isOnline = cms.getRequestContext().getCurrentProject().isOnlineProject();
+            cacheable = (isOnline ? cacheable : false);
+            CmsJspStandardContextBean contextBean = CmsJspStandardContextBean.getInstance(request);
+            CmsContainerElementBean parentElement = contextBean.getElement();
+
+            try {
+                if (formatter != null) {
+                    element.initResource(cms);
+                    element.initSettings(cms, formatter);
+                    boolean openedEditable = false;
+                    if (editable && contextBean.getIsEditMode()) {
+                        if (CmsJspTagEditable.getDirectEditProvider(context) == null) {
+                            I_CmsDirectEditProvider eb = new CmsAdvancedDirectEditProvider();
+                            eb.init(cms, CmsDirectEditMode.TRUE, element.getSitePath());
+                            request.setAttribute(I_CmsDirectEditProvider.ATTRIBUTE_DIRECT_EDIT_PROVIDER, eb);
+                        }
+                        openedEditable = CmsJspTagEdit.insertDirectEditStart(
+                            cms,
+                            context,
+                            element.getResource(),
+                            canCreate,
+                            canDelete,
+                            null,
+                            creationSiteMap,
+                            postCreateHandler);
+                    }
+                    contextBean.setElement(element);
+                    try {
+                        CmsJspTagInclude.includeTagAction(
+                            context,
+                            cms.getRequestContext().removeSiteRoot(formatter.getJspRootPath()),
+                            null,
+                            locale,
+                            false,
+                            cacheable,
+                            null,
+                            CmsRequestUtil.getAtrributeMap(request),
+                            request,
+                            response);
+                    } catch (JspException e) {
+                        LOG.error(e.getLocalizedMessage(), e);
+                    }
+                    if (openedEditable) {
+                        CmsJspTagEdit.insertDirectEditEnd(context);
+                    }
+                }
+            } catch (CmsException e) {
+                LOG.error(e.getLocalizedMessage(), e);
+            }
+            contextBean.setElement(parentElement);
+        }
+
+    }
+
+    /**
+     * Includes the formatter rendering the given element.<p>
+     *
+     * @param element the element
+     * @param formatter the formatter configuration bean
+     * @param context the page context
+     * @param request the request
+     * @param response the response
+     */
+    public static void displayAction(
+        CmsContainerElementBean element,
+        I_CmsFormatterBean formatter,
+        PageContext context,
+        ServletRequest request,
+        ServletResponse response) {
+
+        displayAction(element, formatter, false, false, false, false, null, null, context, request, response);
+    }
+
+    /**
+     * Includes the formatter rendering the given element.<p>
+     *
+     * @param elementResource the element resource
+     * @param formatter the formatter configuration bean
+     * @param settings the element settings
+     * @param editable if editable
+     * @param canCreate if new resources may be created
+     * @param canDelete if the resource may be deleted
+     * @param cacheable if the element can be cacheable
+     * @param creationSiteMap the create location sub site
+     * @param postCreateHandler the post create handler
+     * @param context the page context
+     * @param request the request
+     * @param response the response
+     */
+    public static void displayAction(
+        CmsResource elementResource,
+        I_CmsFormatterBean formatter,
+        Map<String, String> settings,
+        boolean editable,
+        boolean canCreate,
+        boolean canDelete,
+        boolean cacheable,
+        String creationSiteMap,
+        String postCreateHandler,
+        PageContext context,
+        ServletRequest request,
+        ServletResponse response) {
+
+        CmsContainerElementBean element = new CmsContainerElementBean(
+            elementResource.getStructureId(),
+            formatter.getJspStructureId(),
+            settings,
+            false);
+        displayAction(
+            element,
+            formatter,
+            editable,
+            canCreate,
+            canDelete,
+            cacheable,
+            creationSiteMap,
+            postCreateHandler,
+            context,
+            request,
+            response);
+    }
+
+    /** Flag, indicating if the contents should be cacheable. */
+    private boolean m_cacheable;
+
     /** Flag, indicating if the create option should be displayed. */
     private boolean m_canCreate;
 
@@ -113,154 +269,6 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     }
 
     /**
-     * Includes the formatter rendering the given element.<p>
-     *
-     * @param element the element
-     * @param formatter the formatter configuration bean
-     * @param editable if editable
-     * @param canCreate if new resources may be created
-     * @param canDelete if the resource may be deleted
-     * @param creationSiteMap the create location sub site
-     * @param postCreateHandler the post create handler
-     * @param context the page context
-     * @param request the request
-     * @param response the response
-     */
-    public static void displayAction(
-        CmsContainerElementBean element,
-        I_CmsFormatterBean formatter,
-        boolean editable,
-        boolean canCreate,
-        boolean canDelete,
-        String creationSiteMap,
-        String postCreateHandler,
-        PageContext context,
-        ServletRequest request,
-        ServletResponse response) {
-
-        if (CmsFlexController.isCmsRequest(request)) {
-            // this will always be true if the page is called through OpenCms
-            CmsObject cms = CmsFlexController.getCmsObject(request);
-            Locale locale = cms.getRequestContext().getLocale();
-            boolean isOnline = cms.getRequestContext().getCurrentProject().isOnlineProject();
-            CmsJspStandardContextBean contextBean = CmsJspStandardContextBean.getInstance(request);
-            CmsContainerElementBean parentElement = contextBean.getElement();
-
-            try {
-                if (formatter != null) {
-                    element.initResource(cms);
-                    element.initSettings(cms, formatter);
-                    boolean openedEditable = false;
-                    if (editable && contextBean.getIsEditMode()) {
-                        if (CmsJspTagEditable.getDirectEditProvider(context) == null) {
-                            I_CmsDirectEditProvider eb = new CmsAdvancedDirectEditProvider();
-                            eb.init(cms, CmsDirectEditMode.TRUE, element.getSitePath());
-                            request.setAttribute(I_CmsDirectEditProvider.ATTRIBUTE_DIRECT_EDIT_PROVIDER, eb);
-                        }
-                        openedEditable = CmsJspTagEdit.insertDirectEditStart(
-                            cms,
-                            context,
-                            element.getResource(),
-                            canCreate,
-                            canDelete,
-                            null,
-                            creationSiteMap,
-                            postCreateHandler);
-                    }
-                    contextBean.setElement(element);
-                    try {
-                        CmsJspTagInclude.includeTagAction(
-                            context,
-                            cms.getRequestContext().removeSiteRoot(formatter.getJspRootPath()),
-                            null,
-                            locale,
-                            false,
-                            isOnline,
-                            null,
-                            CmsRequestUtil.getAtrributeMap(request),
-                            request,
-                            response);
-                    } catch (JspException e) {
-                        LOG.error(e.getLocalizedMessage(), e);
-                    }
-                    if (openedEditable) {
-                        CmsJspTagEdit.insertDirectEditEnd(context);
-                    }
-                }
-            } catch (CmsException e) {
-                LOG.error(e.getLocalizedMessage(), e);
-            }
-            contextBean.setElement(parentElement);
-        }
-
-    }
-
-    /**
-     * Includes the formatter rendering the given element.<p>
-     *
-     * @param element the element
-     * @param formatter the formatter configuration bean
-     * @param context the page context
-     * @param request the request
-     * @param response the response
-     */
-    public static void displayAction(
-        CmsContainerElementBean element,
-        I_CmsFormatterBean formatter,
-        PageContext context,
-        ServletRequest request,
-        ServletResponse response) {
-
-        displayAction(element, formatter, false, false, false, null, null, context, request, response);
-    }
-
-    /**
-     * Includes the formatter rendering the given element.<p>
-     *
-     * @param elementResource the element resource
-     * @param formatter the formatter configuration bean
-     * @param settings the element settings
-     * @param editable if editable
-     * @param canCreate if new resources may be created
-     * @param canDelete if the resource may be deleted
-     * @param creationSiteMap the create location sub site
-     * @param postCreateHandler the post create handler
-     * @param context the page context
-     * @param request the request
-     * @param response the response
-     */
-    public static void displayAction(
-        CmsResource elementResource,
-        I_CmsFormatterBean formatter,
-        Map<String, String> settings,
-        boolean editable,
-        boolean canCreate,
-        boolean canDelete,
-        String creationSiteMap,
-        String postCreateHandler,
-        PageContext context,
-        ServletRequest request,
-        ServletResponse response) {
-
-        CmsContainerElementBean element = new CmsContainerElementBean(
-            elementResource.getStructureId(),
-            formatter.getJspStructureId(),
-            settings,
-            false);
-        displayAction(
-            element,
-            formatter,
-            editable,
-            canCreate,
-            canDelete,
-            creationSiteMap,
-            postCreateHandler,
-            context,
-            request,
-            response);
-    }
-
-    /**
      * Adds a display formatter.<p>
      *
      * @param type the resource type
@@ -269,6 +277,24 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     public void addDisplayFormatter(String type, String path) {
 
         m_displayFormatterPaths.put(type, path);
+    }
+
+    /**
+     * Adds a formatter.<p>
+     *
+     * @param formatterItem the formatter value
+     */
+    private void addFormatter(CmsJspContentAccessValueWrapper formatterItem) {
+
+        I_CmsXmlContentValue val = formatterItem.getContentValue();
+        if (val instanceof CmsXmlDisplayFormatterValue) {
+            CmsXmlDisplayFormatterValue value = (CmsXmlDisplayFormatterValue)val;
+            String type = value.getDisplayType();
+            CmsUUID formatterId = value.getFormatterId();
+            if (formatterId != null) {
+                m_displayFormatterIds.put(type, formatterId);
+            }
+        }
     }
 
     /**
@@ -316,6 +342,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
                     m_editable,
                     m_canCreate,
                     m_canDelete,
+                    m_cacheable,
                     m_creationSiteMap,
                     m_postCreateHandler,
                     pageContext,
@@ -347,6 +374,16 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     }
 
     /**
+     * Returns the cacheable.<p>
+     *
+     * @return the cacheable
+     */
+    public boolean getCacheble() {
+
+        return m_cacheable;
+    }
+
+    /**
      * Returns the editable.<p>
      *
      * @return the editable
@@ -354,6 +391,44 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     public boolean getEditable() {
 
         return m_editable;
+    }
+
+    /**
+     * Returns the config for the requested resource, or <code>null</code> if not available.<p>
+     *
+     * @param cms the cms context
+     * @param resource the resource
+     * @param isOnline the is online flag
+     *
+     * @return the formatter configuration bean
+     */
+    private I_CmsFormatterBean getFormatterForType(CmsObject cms, CmsResource resource, boolean isOnline) {
+
+        String typeName = OpenCms.getResourceManager().getResourceType(resource).getTypeName();
+        I_CmsFormatterBean result = null;
+        if (m_displayFormatterPaths.containsKey(typeName)) {
+            try {
+                CmsResource res = cms.readResource(m_displayFormatterPaths.get(typeName));
+                result = OpenCms.getADEManager().getCachedFormatters(isOnline).getFormatters().get(
+                    res.getStructureId());
+            } catch (CmsException e) {
+                LOG.error(e.getLocalizedMessage(), e);
+            }
+        } else if (m_displayFormatterIds.containsKey(typeName)) {
+            result = OpenCms.getADEManager().getCachedFormatters(isOnline).getFormatters().get(
+                m_displayFormatterIds.get(typeName));
+        } else {
+            CmsADEConfigData config = OpenCms.getADEManager().lookupConfiguration(
+                cms,
+                cms.addSiteRoot(cms.getRequestContext().getFolderUri()));
+            if (config != null) {
+                CmsFormatterConfiguration formatters = config.getFormatters(cms, resource);
+                if (formatters != null) {
+                    result = formatters.getDisplayFormatter();
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -388,7 +463,28 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         m_displayFormatterIds.clear();
         m_passSettings = false;
         m_editable = false;
+        m_cacheable = false;
         m_value = null;
+    }
+
+    /**
+     * Sets the cacheable.<p>
+     *
+     * @param cacheable the cacheable to set
+     */
+    public void setcacheable(boolean cacheable) {
+
+        m_cacheable = cacheable;
+    }
+
+    /**
+     * Sets the cacheable.<p>
+     *
+     * @param cacheable the editable to set
+     */
+    public void setcacheable(String cacheable) {
+
+        m_cacheable = Boolean.valueOf(cacheable).booleanValue();
     }
 
     /** Setter for the "create" attribute of the tag.
@@ -500,61 +596,5 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     public void setValue(String value) {
 
         m_value = value;
-    }
-
-    /**
-     * Adds a formatter.<p>
-     *
-     * @param formatterItem the formatter value
-     */
-    private void addFormatter(CmsJspContentAccessValueWrapper formatterItem) {
-
-        I_CmsXmlContentValue val = formatterItem.getContentValue();
-        if (val instanceof CmsXmlDisplayFormatterValue) {
-            CmsXmlDisplayFormatterValue value = (CmsXmlDisplayFormatterValue)val;
-            String type = value.getDisplayType();
-            CmsUUID formatterId = value.getFormatterId();
-            if (formatterId != null) {
-                m_displayFormatterIds.put(type, formatterId);
-            }
-        }
-    }
-
-    /**
-     * Returns the config for the requested resource, or <code>null</code> if not available.<p>
-     *
-     * @param cms the cms context
-     * @param resource the resource
-     * @param isOnline the is online flag
-     *
-     * @return the formatter configuration bean
-     */
-    private I_CmsFormatterBean getFormatterForType(CmsObject cms, CmsResource resource, boolean isOnline) {
-
-        String typeName = OpenCms.getResourceManager().getResourceType(resource).getTypeName();
-        I_CmsFormatterBean result = null;
-        if (m_displayFormatterPaths.containsKey(typeName)) {
-            try {
-                CmsResource res = cms.readResource(m_displayFormatterPaths.get(typeName));
-                result = OpenCms.getADEManager().getCachedFormatters(isOnline).getFormatters().get(
-                    res.getStructureId());
-            } catch (CmsException e) {
-                LOG.error(e.getLocalizedMessage(), e);
-            }
-        } else if (m_displayFormatterIds.containsKey(typeName)) {
-            result = OpenCms.getADEManager().getCachedFormatters(isOnline).getFormatters().get(
-                m_displayFormatterIds.get(typeName));
-        } else {
-            CmsADEConfigData config = OpenCms.getADEManager().lookupConfiguration(
-                cms,
-                cms.addSiteRoot(cms.getRequestContext().getFolderUri()));
-            if (config != null) {
-                CmsFormatterConfiguration formatters = config.getFormatters(cms, resource);
-                if (formatters != null) {
-                    result = formatters.getDisplayFormatter();
-                }
-            }
-        }
-        return result;
     }
 }

@@ -125,54 +125,6 @@ public class CmsJspTagContainer extends BodyTagSupport {
     /** Use this locale string for locale independent detail only container resources. */
     public static final String LOCALE_ALL = "ALL";
 
-    /** The evaluated body content if available. */
-    private String m_bodyContent;
-
-    /** States if this container should only be displayed on detail pages. */
-    private boolean m_detailOnly;
-
-    /** The detail-view attribute value. */
-    private boolean m_detailView;
-
-    /** The editable by tag attribute. A comma separated list of OpenCms principals. */
-    private String m_editableBy;
-
-    /** Indicating that the container page editor is active for the current request. */
-    private boolean m_editableRequest;
-
-    /** The maxElements attribute value. */
-    private String m_maxElements;
-
-    /** The name attribute value. */
-    private String m_name;
-
-    /**
-     * The container name prefix to use for nested container names.
-     * If empty the element instance id of the parent element will be used.
-     **/
-    private String m_namePrefix;
-
-    /** The optional container parameter. */
-    private String m_param;
-
-    /** The parent container. */
-    private CmsContainerBean m_parentContainer;
-
-    /** The parent element to this container. */
-    private CmsContainerElementBean m_parentElement;
-
-    /** The tag attribute value. */
-    private String m_tag;
-
-    /** The class attribute value. */
-    private String m_tagClass;
-
-    /** The type attribute value. */
-    private String m_type;
-
-    /** The container width as a string. */
-    private String m_width;
-
     /**
      * Ensures the appropriate formatter configuration ID is set in the element settings.<p>
      *
@@ -212,6 +164,8 @@ public class CmsJspTagContainer extends BodyTagSupport {
             }
             element.getSettings().put(settingsKey, formatterConfigId);
             element.setFormatterId(formatterBean.getJspStructureId());
+        } else {
+            element.setFormatterId(null);
         }
         return formatterBean;
     }
@@ -253,12 +207,8 @@ public class CmsJspTagContainer extends BodyTagSupport {
     public static String getDetailContentPath(String detailContainersPage) {
 
         String detailName = CmsResource.getName(detailContainersPage);
-        String parentFolder = CmsResource.getParentFolder(CmsResource.getParentFolder(detailContainersPage));
-        if (parentFolder.endsWith("/" + DETAIL_CONTAINERS_FOLDER_NAME + "/")) {
-            // this will be the case for locale dependent detail only pages, move one level up
-            parentFolder = CmsResource.getParentFolder(parentFolder);
-        }
-        detailName = CmsStringUtil.joinPaths(parentFolder, detailName);
+        String parentFolder = CmsResource.getParentFolder(detailContainersPage);
+        detailName = CmsStringUtil.joinPaths(CmsResource.getParentFolder(parentFolder), detailName);
         return detailName;
     }
 
@@ -519,52 +469,6 @@ public class CmsJspTagContainer extends BodyTagSupport {
     }
 
     /**
-     * Checks whether the given resource path is of a detail containers page.<p>
-     *
-     * @param cms the cms context
-     * @param detailContainersPage the resource site path
-     *
-     * @return <code>true</code> if the given resource path is of a detail containers page
-     */
-    public static boolean isDetailContainersPage(CmsObject cms, String detailContainersPage) {
-
-        boolean result = false;
-        try {
-            String detailName = CmsResource.getName(detailContainersPage);
-            String parentFolder = CmsResource.getParentFolder(detailContainersPage);
-            if (!parentFolder.endsWith("/" + DETAIL_CONTAINERS_FOLDER_NAME + "/")) {
-                // this will be the case for locale dependent detail only pages, move one level up
-                parentFolder = CmsResource.getParentFolder(parentFolder);
-            }
-            detailName = CmsStringUtil.joinPaths(CmsResource.getParentFolder(parentFolder), detailName);
-            result = parentFolder.endsWith("/" + DETAIL_CONTAINERS_FOLDER_NAME + "/")
-                && cms.existsResource(detailName, CmsResourceFilter.IGNORE_EXPIRATION);
-        } catch (Throwable t) {
-            // may happen in case string operations fail
-            LOG.debug(t.getLocalizedMessage(), t);
-        }
-        return result;
-    }
-
-    /**
-     * Checks whether single locale detail containers should be used for the given site root.<p>
-     *
-     * @param siteRoot the site root to check
-     *
-     * @return <code>true</code> if single locale detail containers should be used for the given site root
-     */
-    public static boolean useSingleLocaleDetailContainers(String siteRoot) {
-
-        boolean result = false;
-        if ((siteRoot != null)
-            && (OpenCms.getLocaleManager().getLocaleHandler() instanceof CmsSingleTreeLocaleHandler)) {
-            CmsSite site = OpenCms.getSiteManager().getSiteForSiteRoot(siteRoot);
-            result = (site != null) && CmsSite.LocalizationMode.singleTree.equals(site.getLocalizationMode());
-        }
-        return result;
-    }
-
-    /**
      * Creates the closing tag for the container.<p>
      *
      * @param tagName the tag name
@@ -616,6 +520,99 @@ public class CmsJspTagContainer extends BodyTagSupport {
         buffer.append(">");
         return buffer.toString();
     }
+
+    /**
+     * Checks whether the given resource path is of a detail containers page.<p>
+     *
+     * @param cms the cms context
+     * @param detailContainersPage the resource site path
+     *
+     * @return <code>true</code> if the given resource path is of a detail containers page
+     */
+    public static boolean isDetailContainersPage(CmsObject cms, String detailContainersPage) {
+
+        boolean result = false;
+        try {
+            String detailName = CmsResource.getName(detailContainersPage);
+            String parentFolder = CmsResource.getParentFolder(detailContainersPage);
+            detailName = CmsStringUtil.joinPaths(CmsResource.getParentFolder(parentFolder), detailName);
+            result = parentFolder.endsWith("/" + DETAIL_CONTAINERS_FOLDER_NAME + "/")
+                && cms.existsResource(detailName, CmsResourceFilter.IGNORE_EXPIRATION);
+        } catch (Throwable t) {
+            // may happen in case string operations fail
+            LOG.debug(t.getLocalizedMessage(), t);
+        }
+        return result;
+    }
+
+    /**
+     * Checks whether single locale detail containers should be used for the given site root.<p>
+     *
+     * @param siteRoot the site root to check
+     *
+     * @return <code>true</code> if single locale detail containers should be used for the given site root
+     */
+    public static boolean useSingleLocaleDetailContainers(String siteRoot) {
+
+        boolean result = false;
+        if ((siteRoot != null)
+            && (OpenCms.getLocaleManager().getLocaleHandler() instanceof CmsSingleTreeLocaleHandler)) {
+            CmsSite site = OpenCms.getSiteManager().getSiteForSiteRoot(siteRoot);
+            result = (site != null) && CmsSite.LocalizationMode.singleTree.equals(site.getLocalizationMode());
+        }
+        return result;
+    }
+
+    /** The evaluated body content if available. */
+    private String m_bodyContent;
+
+    /** States if this container should only be displayed on detail pages. */
+    private boolean m_detailOnly;
+
+    /** The detail-view attribute value. */
+    private boolean m_detailView;
+
+    /** The editable by tag attribute. A comma separated list of OpenCms principals. */
+    private String m_editableBy;
+
+    /** Indicating that the container page editor is active for the current request. */
+    private boolean m_editableRequest;
+
+    /** The maxElements attribute value. */
+    private String m_maxElements;
+
+    /** The name attribute value. */
+    private String m_name;
+
+    /**
+     * The container name prefix to use for nested container names.
+     * If empty the element instance id of the parent element will be used.
+     **/
+    private String m_namePrefix;
+
+    /** The optional container parameter. */
+    private String m_param;
+
+    /** The parent container. */
+    private CmsContainerBean m_parentContainer;
+
+    /** The parent element to this container. */
+    private CmsContainerElementBean m_parentElement;
+
+    /** The tag attribute value. */
+    private String m_tag;
+
+    /** The class attribute value. */
+    private String m_tagClass;
+
+    /** The type attribute value. */
+    private String m_type;
+
+    /** The container width as a string. */
+    private String m_width;
+
+    /** Force the body to show if it is not empty. */
+    private boolean m_viewBody;
 
     /**
      * @see javax.servlet.jsp.tagext.BodyTagSupport#doAfterBody()
@@ -763,7 +760,12 @@ public class CmsJspTagContainer extends BodyTagSupport {
                         }
                     }
                 }
-                if ((numRenderedElements == 0) && (m_bodyContent != null) && CmsJspTagEditable.isEditableRequest(req)) {
+                if ((((m_bodyContent != null) && (!"".equals(m_bodyContent)))
+                    && m_viewBody
+                    && (numRenderedElements == 0))
+                    || ((numRenderedElements == 0)
+                        && (m_bodyContent != null)
+                        && CmsJspTagEditable.isEditableRequest(req))) {
                     // the container is empty, print the evaluated body content
                     pageContext.getOut().print(m_bodyContent);
                 }
@@ -787,6 +789,7 @@ public class CmsJspTagContainer extends BodyTagSupport {
         m_detailView = false;
         m_detailOnly = false;
         m_width = null;
+        m_viewBody = false;
         m_editableBy = null;
         m_bodyContent = null;
         // reset the current element
@@ -812,228 +815,54 @@ public class CmsJspTagContainer extends BodyTagSupport {
     }
 
     /**
-     * Returns the boolean value if this container is target of detail views.<p>
+     * Generates the detail view element.<p>
      *
-     * @return <code>true</code> or <code>false</code>
-     */
-    public String getDetailview() {
-
-        return String.valueOf(m_detailView);
-    }
-
-    /**
-     * Returns the editable by tag attribute.<p>
+     * @param cms the CMS context
+     * @param detailContent the detail content resource
+     * @param container the container
      *
-     * @return the editable by tag attribute
+     * @return the detail view element
      */
-    public String getEditableby() {
+    private CmsContainerElementBean generateDetailViewElement(
+        CmsObject cms,
+        CmsResource detailContent,
+        CmsContainerBean container) {
 
-        return m_editableBy;
-    }
+        CmsContainerElementBean element = null;
+        if (detailContent != null) {
+            // get the right formatter
 
-    /**
-     * Returns the maxElements attribute value.<p>
-     *
-     * @return the maxElements attribute value
-     */
-    public String getMaxElements() {
+            CmsADEConfigData config = OpenCms.getADEManager().lookupConfiguration(
+                cms,
+                cms.getRequestContext().getRootUri());
+            CmsFormatterConfiguration formatters = config.getFormatters(cms, detailContent);
+            I_CmsFormatterBean formatter = formatters.getDetailFormatter(getType(), getContainerWidth());
+            if (formatter != null) {
+                // use structure id as the instance id to enable use of nested containers
+                Map<String, String> settings = new HashMap<String, String>();
+                if (!container.getElements().isEmpty()) {
+                    // in case the first element in the container is of the same type as the detail content, transfer it's settings
+                    CmsContainerElementBean el = container.getElements().get(0);
+                    try {
+                        el.initResource(cms);
+                        if (el.getResource().getTypeId() == detailContent.getTypeId()) {
+                            settings.putAll(el.getIndividualSettings());
+                        }
+                    } catch (CmsException e) {
+                        LOG.error(e.getLocalizedMessage(), e);
+                    }
+                }
 
-        return CmsStringUtil.isEmptyOrWhitespaceOnly(m_maxElements) ? DEFAULT_MAX_ELEMENTS : m_maxElements;
-    }
-
-    /**
-     * Returns the container name, in case of nested containers with a prefix to guaranty uniqueness.<p>
-     *
-     * @return String the container name
-     */
-    public String getName() {
-
-        if (isNested()) {
-            return (CmsStringUtil.isEmptyOrWhitespaceOnly(m_namePrefix)
-            ? m_parentElement.getInstanceId()
-            : m_namePrefix) + "-" + m_name;
+                settings.put(CmsContainerElement.ELEMENT_INSTANCE_ID, detailContent.getStructureId().toString());
+                // create element bean
+                element = new CmsContainerElementBean(
+                    detailContent.getStructureId(),
+                    formatter.getJspStructureId(),
+                    settings,
+                    false);
+            }
         }
-        return m_name;
-    }
-
-    /**
-     * Returns the name prefix.<p>
-     *
-     * @return the namePrefix
-     */
-    public String getNameprefix() {
-
-        return m_namePrefix;
-    }
-
-    /**
-     * Returns the (optional) container parameter.<p>
-     *
-     * This is useful for a dynamically generated nested container,
-     * to pass information to the formatter used inside that container.
-     *
-     * If no parameters have been set, this will return <code>null</code>
-     *
-     * @return the (optional) container parameter
-     */
-    public String getParam() {
-
-        return m_param;
-    }
-
-    /**
-     * Returns the tag attribute.<p>
-     *
-     * @return the tag attribute
-     */
-    public String getTag() {
-
-        return m_tag;
-    }
-
-    /**
-     * Returns the tag class attribute.<p>
-     *
-     * @return the tag class attribute
-     */
-    public String getTagClass() {
-
-        return m_tagClass;
-    }
-
-    /**
-     * Returns the type attribute value.<p>
-     *
-     * If the container type has not been set, the name is substituted as type.<p>
-     *
-     * @return the type attribute value
-     */
-    public String getType() {
-
-        return CmsStringUtil.isEmptyOrWhitespaceOnly(m_type) ? getName() : m_type;
-    }
-
-    /**
-     * Returns the container width as a string.<p>
-     *
-     * @return the container width as a string
-     */
-    public String getWidth() {
-
-        return m_width;
-    }
-
-    /**
-     * Sets if this container should only be displayed on detail pages.<p>
-     *
-     * @param detailOnly if this container should only be displayed on detail pages
-     */
-    public void setDetailonly(String detailOnly) {
-
-        m_detailOnly = Boolean.parseBoolean(detailOnly);
-    }
-
-    /**
-     * Sets if the current container is target of detail views.<p>
-     *
-     * @param detailView <code>true</code> or <code>false</code>
-     */
-    public void setDetailview(String detailView) {
-
-        m_detailView = Boolean.parseBoolean(detailView);
-    }
-
-    /**
-     * Sets the editable by tag attribute.<p>
-     *
-     * @param editableBy the editable by tag attribute to set
-     */
-    public void setEditableby(String editableBy) {
-
-        m_editableBy = editableBy;
-    }
-
-    /**
-     * Sets the maxElements attribute value.<p>
-     *
-     * @param maxElements the maxElements value to set
-     */
-    public void setMaxElements(String maxElements) {
-
-        m_maxElements = maxElements;
-    }
-
-    /**
-     * Sets the name attribute value.<p>
-     *
-     * @param name the name value to set
-     */
-    public void setName(String name) {
-
-        m_name = name;
-    }
-
-    /**
-     * Sets the name prefix.<p>
-     *
-     * @param namePrefix the name prefix to set
-     */
-    public void setNameprefix(String namePrefix) {
-
-        m_namePrefix = namePrefix;
-    }
-
-    /**
-     * Sets the container parameter.<p>
-     *
-     * This is useful for a dynamically generated nested container,
-     * to pass information to the formatter used inside that container.
-     *
-     * @param param the parameter String to set
-     */
-    public void setParam(String param) {
-
-        m_param = param;
-    }
-
-    /**
-     * Sets the tag attribute.<p>
-     *
-     * @param tag the createTag to set
-     */
-    public void setTag(String tag) {
-
-        m_tag = tag;
-    }
-
-    /**
-     * Sets the tag class attribute.<p>
-     *
-     * @param tagClass the tag class attribute to set
-     */
-    public void setTagClass(String tagClass) {
-
-        m_tagClass = tagClass;
-    }
-
-    /**
-     * Sets the type attribute value.<p>
-     *
-     * @param type the type value to set
-     */
-    public void setType(String type) {
-
-        m_type = type;
-    }
-
-    /**
-     * Sets the container width as a string.<p>
-     *
-     * @param width the container width as a string
-     */
-    public void setWidth(String width) {
-
-        m_width = width;
+        return element;
     }
 
     /**
@@ -1077,6 +906,206 @@ public class CmsJspTagContainer extends BodyTagSupport {
         }
 
         return result;
+    }
+
+    /**
+     * Gets the container width as a number.<p>
+     *
+     * If the container width is not set, or not a number, -1 will be returned.<p>
+     *
+     * @return the container width or -1
+     */
+    private int getContainerWidth() {
+
+        int containerWidth = -1;
+        try {
+            containerWidth = Integer.parseInt(m_width);
+        } catch (NumberFormatException e) {
+            // do nothing, set width to -1
+            LOG.debug("Error parsing container width.", e);
+        }
+        return containerWidth;
+    }
+
+    /**
+     * Returns the boolean value if this container is target of detail views.<p>
+     *
+     * @return <code>true</code> or <code>false</code>
+     */
+    public String getDetailview() {
+
+        return String.valueOf(m_detailView);
+    }
+
+    /**
+     * Returns the editable by tag attribute.<p>
+     *
+     * @return the editable by tag attribute
+     */
+    public String getEditableby() {
+
+        return m_editableBy;
+    }
+
+    /**
+     * Returns the serialized element data.<p>
+     *
+     * @param cms the current cms context
+     * @param elementBean the element to serialize
+     * @param page the container page
+     *
+     * @return the serialized element data
+     *
+     * @throws Exception if something goes wrong
+     */
+    private String getElementInfo(CmsObject cms, CmsContainerElementBean elementBean, CmsContainerPageBean page)
+    throws Exception {
+
+        return CmsContainerpageService.getSerializedElementInfo(
+            cms,
+            (HttpServletRequest)pageContext.getRequest(),
+            (HttpServletResponse)pageContext.getResponse(),
+            elementBean,
+            page);
+    }
+
+    /**
+     * Returns the maxElements attribute value.<p>
+     *
+     * @return the maxElements attribute value
+     */
+    public String getMaxElements() {
+
+        return CmsStringUtil.isEmptyOrWhitespaceOnly(m_maxElements) ? DEFAULT_MAX_ELEMENTS : m_maxElements;
+    }
+
+    /**
+     * Parses the maximum element number from the current container and returns the resulting number.<p>
+     *
+     * @param requestUri the requested URI
+     *
+     * @return the maximum number of elements of the container
+     */
+    private int getMaxElements(String requestUri) {
+
+        String containerMaxElements = getMaxElements();
+
+        int maxElements = -1;
+        if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(containerMaxElements)) {
+            try {
+                maxElements = Integer.parseInt(containerMaxElements);
+            } catch (NumberFormatException e) {
+                throw new CmsIllegalStateException(
+                    Messages.get().container(
+                        Messages.LOG_WRONG_CONTAINER_MAXELEMENTS_3,
+                        new Object[] {requestUri, getName(), containerMaxElements}),
+                    e);
+            }
+        } else {
+            if (LOG.isWarnEnabled()) {
+                LOG.warn(
+                    Messages.get().getBundle().key(
+                        Messages.LOG_MAXELEMENTS_NOT_SET_2,
+                        new Object[] {getName(), requestUri}));
+            }
+        }
+        return maxElements;
+    }
+
+    /**
+     * Returns the container name, in case of nested containers with a prefix to guaranty uniqueness.<p>
+     *
+     * @return String the container name
+     */
+    public String getName() {
+
+        if (isNested()) {
+            return (CmsStringUtil.isEmptyOrWhitespaceOnly(m_namePrefix)
+            ? m_parentElement.getInstanceId()
+            : m_namePrefix) + "-" + m_name;
+        }
+        return m_name;
+    }
+
+    /**
+     * Returns the name prefix.<p>
+     *
+     * @return the namePrefix
+     */
+    public String getNameprefix() {
+
+        return m_namePrefix;
+    }
+
+    /**
+     * Returns the (optional) container parameter.<p>
+     *
+     * This is useful for a dynamically generated nested container,
+     * to pass information to the formatter used inside that container.
+     *
+     * If no parameters have been set, this will return <code>null</code>
+     *
+     * @return the (optional) container parameter
+     */
+    public String getParam() {
+
+        return m_param;
+    }
+
+    /**
+     * Returns the ADE session cache for container elements in case of an editable request, otherwise <code>null</code>.<p>
+     *
+     * @param cms the cms context
+     *
+     * @return the session cache
+     */
+    private CmsADESessionCache getSessionCache(CmsObject cms) {
+
+        return m_editableRequest
+        ? CmsADESessionCache.getCache((HttpServletRequest)(pageContext.getRequest()), cms)
+        : null;
+    }
+
+    /**
+     * Returns the tag attribute.<p>
+     *
+     * @return the tag attribute
+     */
+    public String getTag() {
+
+        return m_tag;
+    }
+
+    /**
+     * Returns the tag class attribute.<p>
+     *
+     * @return the tag class attribute
+     */
+    public String getTagClass() {
+
+        return m_tagClass;
+    }
+
+    /**
+     * Returns the type attribute value.<p>
+     *
+     * If the container type has not been set, the name is substituted as type.<p>
+     *
+     * @return the type attribute value
+     */
+    public String getType() {
+
+        return CmsStringUtil.isEmptyOrWhitespaceOnly(m_type) ? getName() : m_type;
+    }
+
+    /**
+     * Returns the container width as a string.<p>
+     *
+     * @return the container width as a string
+     */
+    public String getWidth() {
+
+        return m_width;
     }
 
     /**
@@ -1162,6 +1191,57 @@ public class CmsJspTagContainer extends BodyTagSupport {
     }
 
     /**
+     * Prints an element error tag to the response out.<p>
+     *
+     * @param elementSitePath the element site path
+     * @param formatterSitePath the formatter site path
+     * @param exception the exception causing the error
+     *
+     * @throws IOException if something goes wrong writing to response out
+     */
+    private void printElementErrorTag(String elementSitePath, String formatterSitePath, Exception exception)
+    throws IOException {
+
+        if (m_editableRequest) {
+            String stacktrace = CmsException.getStackTraceAsString(exception);
+            if (CmsStringUtil.isEmptyOrWhitespaceOnly(stacktrace)) {
+                stacktrace = null;
+            } else {
+                // stacktrace = CmsStringUtil.escapeJavaScript(stacktrace);
+                stacktrace = CmsEncoder.escapeXml(stacktrace);
+            }
+            StringBuffer errorBox = new StringBuffer(256);
+            errorBox.append(
+                "<div style=\"display:block; padding: 5px; border: red solid 2px; color: black; background: white;\" class=\"");
+            errorBox.append(CmsContainerElement.CLASS_ELEMENT_ERROR);
+            errorBox.append("\">");
+            errorBox.append(
+                Messages.get().getBundle().key(
+                    Messages.ERR_CONTAINER_PAGE_ELEMENT_RENDER_ERROR_2,
+                    elementSitePath,
+                    formatterSitePath));
+            errorBox.append("<br />");
+            errorBox.append(exception.getLocalizedMessage());
+            if (stacktrace != null) {
+                errorBox.append(
+                    "<span onclick=\"opencms.openStacktraceDialog(event);\" style=\"border: 1px solid black; cursor: pointer;\">");
+                errorBox.append(Messages.get().getBundle().key(Messages.GUI_LABEL_STACKTRACE_0));
+                String title = Messages.get().getBundle().key(
+                    Messages.ERR_CONTAINER_PAGE_ELEMENT_RENDER_ERROR_2,
+                    elementSitePath,
+                    formatterSitePath);
+                errorBox.append("<span title=\"");
+                errorBox.append(CmsEncoder.escapeXml(title));
+                errorBox.append("\" class=\"hiddenStacktrace\" style=\"display:none;\">");
+                errorBox.append(stacktrace);
+                errorBox.append("</span></span>");
+            }
+            errorBox.append("</div>");
+            pageContext.getOut().print(errorBox.toString());
+        }
+    }
+
+    /**
      * Prints the closing tag for an element wrapper if in online mode.<p>
      *
      * @param isGroupcontainer <code>true</code> if element is a group-container
@@ -1216,196 +1296,6 @@ public class CmsJspTagContainer extends BodyTagSupport {
                 result.append("' style='display:none;'></div>");
             }
             pageContext.getOut().print(result);
-        }
-    }
-
-    /**
-     * Generates the detail view element.<p>
-     *
-     * @param cms the CMS context
-     * @param detailContent the detail content resource
-     * @param container the container
-     *
-     * @return the detail view element
-     */
-    private CmsContainerElementBean generateDetailViewElement(
-        CmsObject cms,
-        CmsResource detailContent,
-        CmsContainerBean container) {
-
-        CmsContainerElementBean element = null;
-        if (detailContent != null) {
-            // get the right formatter
-
-            CmsADEConfigData config = OpenCms.getADEManager().lookupConfiguration(
-                cms,
-                cms.getRequestContext().getRootUri());
-            CmsFormatterConfiguration formatters = config.getFormatters(cms, detailContent);
-            I_CmsFormatterBean formatter = formatters.getDetailFormatter(getType(), getContainerWidth());
-            if (formatter != null) {
-                // use structure id as the instance id to enable use of nested containers
-                Map<String, String> settings = new HashMap<String, String>();
-                if (!container.getElements().isEmpty()) {
-                    // in case the first element in the container is of the same type as the detail content, transfer it's settings
-                    CmsContainerElementBean el = container.getElements().get(0);
-                    try {
-                        el.initResource(cms);
-                        if (el.getResource().getTypeId() == detailContent.getTypeId()) {
-                            settings.putAll(el.getIndividualSettings());
-                        }
-                    } catch (CmsException e) {
-                        LOG.error(e.getLocalizedMessage(), e);
-                    }
-                }
-
-                settings.put(CmsContainerElement.ELEMENT_INSTANCE_ID, detailContent.getStructureId().toString());
-                // create element bean
-                element = new CmsContainerElementBean(
-                    detailContent.getStructureId(),
-                    formatter.getJspStructureId(),
-                    settings,
-                    false);
-            }
-        }
-        return element;
-    }
-
-    /**
-     * Gets the container width as a number.<p>
-     *
-     * If the container width is not set, or not a number, -1 will be returned.<p>
-     *
-     * @return the container width or -1
-     */
-    private int getContainerWidth() {
-
-        int containerWidth = -1;
-        try {
-            containerWidth = Integer.parseInt(m_width);
-        } catch (NumberFormatException e) {
-            // do nothing, set width to -1
-            LOG.debug("Error parsing container width.", e);
-        }
-        return containerWidth;
-    }
-
-    /**
-     * Returns the serialized element data.<p>
-     *
-     * @param cms the current cms context
-     * @param elementBean the element to serialize
-     * @param page the container page
-     *
-     * @return the serialized element data
-     *
-     * @throws Exception if something goes wrong
-     */
-    private String getElementInfo(CmsObject cms, CmsContainerElementBean elementBean, CmsContainerPageBean page)
-    throws Exception {
-
-        return CmsContainerpageService.getSerializedElementInfo(
-            cms,
-            (HttpServletRequest)pageContext.getRequest(),
-            (HttpServletResponse)pageContext.getResponse(),
-            elementBean,
-            page);
-    }
-
-    /**
-     * Parses the maximum element number from the current container and returns the resulting number.<p>
-     *
-     * @param requestUri the requested URI
-     *
-     * @return the maximum number of elements of the container
-     */
-    private int getMaxElements(String requestUri) {
-
-        String containerMaxElements = getMaxElements();
-
-        int maxElements = -1;
-        if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(containerMaxElements)) {
-            try {
-                maxElements = Integer.parseInt(containerMaxElements);
-            } catch (NumberFormatException e) {
-                throw new CmsIllegalStateException(
-                    Messages.get().container(
-                        Messages.LOG_WRONG_CONTAINER_MAXELEMENTS_3,
-                        new Object[] {requestUri, getName(), containerMaxElements}),
-                    e);
-            }
-        } else {
-            if (LOG.isWarnEnabled()) {
-                LOG.warn(
-                    Messages.get().getBundle().key(
-                        Messages.LOG_MAXELEMENTS_NOT_SET_2,
-                        new Object[] {getName(), requestUri}));
-            }
-        }
-        return maxElements;
-    }
-
-    /**
-     * Returns the ADE session cache for container elements in case of an editable request, otherwise <code>null</code>.<p>
-     *
-     * @param cms the cms context
-     *
-     * @return the session cache
-     */
-    private CmsADESessionCache getSessionCache(CmsObject cms) {
-
-        return m_editableRequest
-        ? CmsADESessionCache.getCache((HttpServletRequest)(pageContext.getRequest()), cms)
-        : null;
-    }
-
-    /**
-     * Prints an element error tag to the response out.<p>
-     *
-     * @param elementSitePath the element site path
-     * @param formatterSitePath the formatter site path
-     * @param exception the exception causing the error
-     *
-     * @throws IOException if something goes wrong writing to response out
-     */
-    private void printElementErrorTag(String elementSitePath, String formatterSitePath, Exception exception)
-    throws IOException {
-
-        if (m_editableRequest) {
-            String stacktrace = CmsException.getStackTraceAsString(exception);
-            if (CmsStringUtil.isEmptyOrWhitespaceOnly(stacktrace)) {
-                stacktrace = null;
-            } else {
-                // stacktrace = CmsStringUtil.escapeJavaScript(stacktrace);
-                stacktrace = CmsEncoder.escapeXml(stacktrace);
-            }
-            StringBuffer errorBox = new StringBuffer(256);
-            errorBox.append(
-                "<div style=\"display:block; padding: 5px; border: red solid 2px; color: black; background: white;\" class=\"");
-            errorBox.append(CmsContainerElement.CLASS_ELEMENT_ERROR);
-            errorBox.append("\">");
-            errorBox.append(
-                Messages.get().getBundle().key(
-                    Messages.ERR_CONTAINER_PAGE_ELEMENT_RENDER_ERROR_2,
-                    elementSitePath,
-                    formatterSitePath));
-            errorBox.append("<br />");
-            errorBox.append(exception.getLocalizedMessage());
-            if (stacktrace != null) {
-                errorBox.append(
-                    "<span onclick=\"opencms.openStacktraceDialog(event);\" style=\"border: 1px solid black; cursor: pointer;\">");
-                errorBox.append(Messages.get().getBundle().key(Messages.GUI_LABEL_STACKTRACE_0));
-                String title = Messages.get().getBundle().key(
-                    Messages.ERR_CONTAINER_PAGE_ELEMENT_RENDER_ERROR_2,
-                    elementSitePath,
-                    formatterSitePath);
-                errorBox.append("<span title=\"");
-                errorBox.append(CmsEncoder.escapeXml(title));
-                errorBox.append("\" class=\"hiddenStacktrace\" style=\"display:none;\">");
-                errorBox.append(stacktrace);
-                errorBox.append("</span></span>");
-            }
-            errorBox.append("</div>");
-            pageContext.getOut().print(errorBox.toString());
         }
     }
 
@@ -1599,16 +1489,14 @@ public class CmsJspTagContainer extends BodyTagSupport {
                             formatter = cms.getSitePath(formatterResource);
                         } catch (CmsVfsResourceNotFoundException ex) {
                             LOG.debug("Formatter JSP not found by id, try using path.", ex);
-                            if (cms.existsResource(
-                                cms.getRequestContext().removeSiteRoot(formatterConfig.getJspRootPath()))) {
-                                formatter = cms.getRequestContext().removeSiteRoot(formatterConfig.getJspRootPath());
-                            }
+                            formatter = cms.getRequestContext().removeSiteRoot(formatterConfig.getJspRootPath());
                         }
+                        formatter = cms.getSitePath(cms.readResource(formatterConfig.getJspStructureId()));
                     } else {
                         formatter = cms.getSitePath(cms.readResource(element.getFormatterId()));
                     }
                 } catch (CmsException e) {
-                    LOG.debug("Formatter resource can not be found, try reading it from the configuration.", e);
+                    LOG.debug("Formatter resource can not be found, try reading it form the configuration.", e);
                     // the formatter resource can not be found, try reading it form the configuration
                     CmsFormatterConfiguration elementFormatters = adeConfig.getFormatters(cms, element.getResource());
                     I_CmsFormatterBean elementFormatterBean = elementFormatters.getDefaultFormatter(
@@ -1674,6 +1562,129 @@ public class CmsJspTagContainer extends BodyTagSupport {
             }
             return result;
         }
+    }
+
+    /**
+     * Sets if this container should only be displayed on detail pages.<p>
+     *
+     * @param detailOnly if this container should only be displayed on detail pages
+     */
+    public void setDetailonly(String detailOnly) {
+
+        m_detailOnly = Boolean.parseBoolean(detailOnly);
+    }
+
+    /**
+     * Sets if the current container is target of detail views.<p>
+     *
+     * @param detailView <code>true</code> or <code>false</code>
+     */
+    public void setDetailview(String detailView) {
+
+        m_detailView = Boolean.parseBoolean(detailView);
+    }
+
+    /**
+     * Sets the editable by tag attribute.<p>
+     *
+     * @param editableBy the editable by tag attribute to set
+     */
+    public void setEditableby(String editableBy) {
+
+        m_editableBy = editableBy;
+    }
+
+    /**
+     * Sets the maxElements attribute value.<p>
+     *
+     * @param maxElements the maxElements value to set
+     */
+    public void setMaxElements(String maxElements) {
+
+        m_maxElements = maxElements;
+    }
+
+    /**
+     * Sets the name attribute value.<p>
+     *
+     * @param name the name value to set
+     */
+    public void setName(String name) {
+
+        m_name = name;
+    }
+
+    /**
+     * Sets the name prefix.<p>
+     *
+     * @param namePrefix the name prefix to set
+     */
+    public void setNameprefix(String namePrefix) {
+
+        m_namePrefix = namePrefix;
+    }
+
+    /**
+     * Sets the container parameter.<p>
+     *
+     * This is useful for a dynamically generated nested container,
+     * to pass information to the formatter used inside that container.
+     *
+     * @param param the parameter String to set
+     */
+    public void setParam(String param) {
+
+        m_param = param;
+    }
+
+    /**
+     * Sets if this container should only be displayed on detail pages.<p>
+     *
+     * @param showbody if this container should only be displayed on detail pages
+     */
+    public void setshowbody(String showbody) {
+
+        m_viewBody = Boolean.parseBoolean(showbody);
+    }
+
+    /**
+     * Sets the tag attribute.<p>
+     *
+     * @param tag the createTag to set
+     */
+    public void setTag(String tag) {
+
+        m_tag = tag;
+    }
+
+    /**
+     * Sets the tag class attribute.<p>
+     *
+     * @param tagClass the tag class attribute to set
+     */
+    public void setTagClass(String tagClass) {
+
+        m_tagClass = tagClass;
+    }
+
+    /**
+     * Sets the type attribute value.<p>
+     *
+     * @param type the type value to set
+     */
+    public void setType(String type) {
+
+        m_type = type;
+    }
+
+    /**
+     * Sets the container width as a string.<p>
+     *
+     * @param width the container width as a string
+     */
+    public void setWidth(String width) {
+
+        m_width = width;
     }
 
     /**
