@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
+	<schemaFactory class="ClassicIndexSchemaFactory"/>
 	<abortOnConfigurationError>${solr.abortOnConfigurationError:true}
 	</abortOnConfigurationError>
-	<luceneMatchVersion>LUCENE_5_0_0</luceneMatchVersion>
+	<luceneMatchVersion>LUCENE_6_0_0</luceneMatchVersion>
 	<dataDir>${solr.data.dir:}</dataDir>
 	<directoryFactory name="DirectoryFactory"
 		class="${solr.directoryFactory:solr.StandardDirectoryFactory}" />

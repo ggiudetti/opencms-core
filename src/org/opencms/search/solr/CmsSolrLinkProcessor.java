@@ -35,9 +35,9 @@ import org.opencms.file.CmsObject;
 import org.opencms.file.CmsResource;
 import org.opencms.main.OpenCms;
 
-import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.SolrInputField;
 
 /**
  * This Solr post processor generates for each found document the corresponding link and
@@ -45,13 +45,18 @@ import org.apache.solr.common.SolrInputDocument;
  */
 public class CmsSolrLinkProcessor implements I_CmsSolrPostSearchProcessor {
 
-    /**
-     * @see org.opencms.search.solr.I_CmsSolrPostSearchProcessor#process(org.opencms.file.CmsObject, org.opencms.file.CmsResource, org.apache.solr.common.SolrInputDocument)
-     */
-    public SolrDocument process(CmsObject cms, CmsResource resource, SolrInputDocument document) {
+    public static SolrDocument toSolrDocument(SolrInputDocument d) {
 
-        document.addField("link", OpenCms.getLinkManager().substituteLink(cms, resource));
-        return ClientUtils.toSolrDocument(document);
+        SolrDocument doc = new SolrDocument();
+        for (SolrInputField field : d) {
+            doc.setField(field.getName(), field.getValue());
+        }
+        if (d.getChildDocuments() != null) {
+            for (SolrInputDocument in : d.getChildDocuments()) {
+                doc.addChildDocument(toSolrDocument(in));
+            }
+        }
+        return doc;
     }
 
     /**
@@ -61,5 +66,14 @@ public class CmsSolrLinkProcessor implements I_CmsSolrPostSearchProcessor {
     public void init() {
 
         // No actions necessary
+    }
+
+    /**
+     * @see org.opencms.search.solr.I_CmsSolrPostSearchProcessor#process(org.opencms.file.CmsObject, org.opencms.file.CmsResource, org.apache.solr.common.SolrInputDocument)
+     */
+    public SolrDocument process(CmsObject cms, CmsResource resource, SolrInputDocument document) {
+
+        document.addField("link", OpenCms.getLinkManager().substituteLink(cms, resource));
+        return toSolrDocument(document);
     }
 }

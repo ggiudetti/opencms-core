@@ -49,6 +49,7 @@ import org.opencms.xml.content.CmsXmlContentFactory;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
@@ -56,10 +57,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrQuery.ORDER;
-import org.apache.solr.common.util.DateUtil;
 
 import junit.extensions.TestSetup;
 import junit.framework.Test;
@@ -71,16 +72,6 @@ import junit.framework.TestSuite;
  * @since 8.5.0
  */
 public class TestSolrSearch extends OpenCmsTestCase {
-
-    /**
-     * Default JUnit constructor.<p>
-     *
-     * @param arg0 JUnit parameters
-     */
-    public TestSolrSearch(String arg0) {
-
-        super(arg0);
-    }
 
     /**
      * Test suite for this test class.<p>
@@ -144,6 +135,16 @@ public class TestSolrSearch extends OpenCmsTestCase {
         };
 
         return wrapper;
+    }
+
+    /**
+     * Default JUnit constructor.<p>
+     *
+     * @param arg0 JUnit parameters
+     */
+    public TestSolrSearch(String arg0) {
+
+        super(arg0);
     }
 
     /**
@@ -554,7 +555,7 @@ public class TestSolrSearch extends OpenCmsTestCase {
     public void testLimitTimeRanges() throws Exception {
 
         DateFormat DF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        DF.setTimeZone(DateUtil.UTC);
+        DF.setTimeZone(TimeZone.getTimeZone(ZoneOffset.UTC));
 
         CmsObject cms = getCmsObject();
         echo("Testing searching with limiting to time ranges");
@@ -632,7 +633,7 @@ public class TestSolrSearch extends OpenCmsTestCase {
     public void testLimitTimeRangesOptimized() throws Exception {
 
         DateFormat DF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-        DF.setTimeZone(DateUtil.UTC);
+        DF.setTimeZone(TimeZone.getTimeZone(ZoneOffset.UTC));
 
         CmsObject cms = getCmsObject();
         echo("Testing searching with optimized limiting to time ranges");
@@ -997,6 +998,47 @@ public class TestSolrSearch extends OpenCmsTestCase {
     }
 
     /**
+     * Internal helper for test with same name.<p>
+     *
+     * @param cms the current users OpenCms context
+     * @param folderName the folder name to perform the test in
+     * @param expected the expected result size of the search
+     *
+     * @throws Exception in case the test fails
+     */
+    private void testUppercaseFolderNameUtil(CmsObject cms, String folderName, int expected) throws Exception {
+
+        if (folderName != null) {
+            // create test folder
+            cms.createResource(folderName, CmsResourceTypeFolder.RESOURCE_TYPE_ID, null, null);
+            cms.unlockResource(folderName);
+
+            // create master resource
+            importTestResource(
+                cms,
+                "org/opencms/search/pdf-test-112.pdf",
+                folderName + "master.pdf",
+                CmsResourceTypeBinary.getStaticTypeId(),
+                Collections.<CmsProperty> emptyList());
+
+            // publish the project and update the search index
+            OpenCms.getPublishManager().publishProject(cms, new CmsShellReport(cms.getRequestContext().getLocale()));
+            OpenCms.getPublishManager().waitWhileRunning();
+        }
+
+        CmsSolrIndex index = OpenCms.getSearchManager().getIndexSolr(AllTests.SOLR_ONLINE);
+        CmsSolrQuery query = new CmsSolrQuery();
+        query.setText("Testfile Struktur");
+        if (folderName != null) {
+            query.setSearchRoots(cms.getRequestContext().addSiteRoot(folderName));
+        }
+        CmsSolrResultList results = index.search(cms, query);
+        AllTests.printResults(cms, results, false);
+
+        assertEquals(expected, results.size());
+    }
+
+    /**
      * Test the cms search indexer.<p>
      *
      * @throws Throwable if something goes wrong
@@ -1037,46 +1079,5 @@ public class TestSolrSearch extends OpenCmsTestCase {
         assertEquals(1, results.size());
         assertEquals("/sites/default/xmlcontent/article_0003.html", (results.get(0)).getRootPath());
         // assertEquals("/sites/default/xmlcontent/article_0004.html", ((CmsSearchResult)results.get(1)).getPath());
-    }
-
-    /**
-     * Internal helper for test with same name.<p>
-     *
-     * @param cms the current users OpenCms context
-     * @param folderName the folder name to perform the test in
-     * @param expected the expected result size of the search
-     *
-     * @throws Exception in case the test fails
-     */
-    private void testUppercaseFolderNameUtil(CmsObject cms, String folderName, int expected) throws Exception {
-
-        if (folderName != null) {
-            // create test folder
-            cms.createResource(folderName, CmsResourceTypeFolder.RESOURCE_TYPE_ID, null, null);
-            cms.unlockResource(folderName);
-
-            // create master resource
-            importTestResource(
-                cms,
-                "org/opencms/search/pdf-test-112.pdf",
-                folderName + "master.pdf",
-                CmsResourceTypeBinary.getStaticTypeId(),
-                Collections.<CmsProperty> emptyList());
-
-            // publish the project and update the search index
-            OpenCms.getPublishManager().publishProject(cms, new CmsShellReport(cms.getRequestContext().getLocale()));
-            OpenCms.getPublishManager().waitWhileRunning();
-        }
-
-        CmsSolrIndex index = OpenCms.getSearchManager().getIndexSolr(AllTests.SOLR_ONLINE);
-        CmsSolrQuery query = new CmsSolrQuery();
-        query.setText("Testfile Struktur");
-        if (folderName != null) {
-            query.setSearchRoots(cms.getRequestContext().addSiteRoot(folderName));
-        }
-        CmsSolrResultList results = index.search(cms, query);
-        AllTests.printResults(cms, results, false);
-
-        assertEquals(expected, results.size());
     }
 }
