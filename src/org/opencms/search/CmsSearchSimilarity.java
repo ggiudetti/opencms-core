@@ -30,7 +30,7 @@ package org.opencms.search;
 import org.opencms.search.fields.CmsSearchField;
 
 import org.apache.lucene.index.FieldInvertState;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 
 /**
  * Reduces the importance of the <code>{@link #lengthNorm(FieldInvertState)}</code> factor
@@ -46,7 +46,7 @@ import org.apache.lucene.search.similarities.DefaultSimilarity;
  *
  * @since 6.0.0
  */
-public class CmsSearchSimilarity extends DefaultSimilarity {
+public class CmsSearchSimilarity extends ClassicSimilarity {
 
     /** Logarithm base 10 used as factor in the score calculations. */
     private static final double LOG10 = Math.log(10.0);

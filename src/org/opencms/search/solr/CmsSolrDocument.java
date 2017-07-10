@@ -44,21 +44,22 @@ import org.opencms.util.CmsUUID;
 
 import java.nio.ByteBuffer;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import org.apache.commons.logging.Log;
-import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.SolrInputDocument;
-import org.apache.solr.common.util.DateUtil;
+import org.apache.solr.common.SolrInputField;
 import org.apache.solr.schema.FieldType;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.SchemaField;
@@ -77,6 +78,20 @@ public class CmsSolrDocument implements I_CmsSearchDocument {
     /** The log object for this class. */
     private static final Log LOG = CmsLog.getLog(CmsSolrDocument.class);
 
+    public static SolrDocument toSolrDocument(SolrInputDocument d) {
+
+        SolrDocument doc = new SolrDocument();
+        for (SolrInputField field : d) {
+            doc.setField(field.getName(), field.getValue());
+        }
+        if (d.getChildDocuments() != null) {
+            for (SolrInputDocument in : d.getChildDocuments()) {
+                doc.addChildDocument(toSolrDocument(in));
+            }
+        }
+        return doc;
+    }
+
     /** The Solr document. */
     private SolrInputDocument m_doc;
 
@@ -84,14 +99,25 @@ public class CmsSolrDocument implements I_CmsSearchDocument {
     private float m_score;
 
     /**
+     * Private constructor.<p>
+     */
+    private CmsSolrDocument() {
+
+        DF.setTimeZone(TimeZone.getTimeZone(ZoneOffset.UTC));
+    }
+
+    /**
      * Public constructor to create a encapsulate a Solr document.<p>
      *
      * @param doc the Solr document
      */
-    public CmsSolrDocument(SolrDocument doc) {
-
+    public CmsSolrDocument(SolrDocument d) {
         this();
-        m_doc = ClientUtils.toSolrInputDocument(doc);
+        SolrInputDocument doc = new SolrInputDocument();
+        for (String name : d.getFieldNames()) {
+            doc.addField(name, d.getFieldValue(name), 1.0f);
+        }
+        m_doc = doc;
     }
 
     /**
@@ -103,14 +129,6 @@ public class CmsSolrDocument implements I_CmsSearchDocument {
 
         this();
         m_doc = doc;
-    }
-
-    /**
-     * Private constructor.<p>
-     */
-    private CmsSolrDocument() {
-
-        DF.setTimeZone(DateUtil.UTC);
     }
 
     /**
@@ -362,8 +380,8 @@ public class CmsSolrDocument implements I_CmsSearchDocument {
         }
         if (o != null) {
             try {
-                return DateUtil.parseDate(o.toString());
-            } catch (ParseException e) {
+                return Date.from(Instant.parse(o.toString()));
+            } catch (Exception e) {
                 // ignore: not a valid date format
                 LOG.debug(e);
             }
@@ -434,7 +452,7 @@ public class CmsSolrDocument implements I_CmsSearchDocument {
      */
     public SolrDocument getSolrDocument() {
 
-        return ClientUtils.toSolrDocument(m_doc);
+        return toSolrDocument(m_doc);
     }
 
     /**
