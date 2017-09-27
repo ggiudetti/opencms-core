@@ -54,6 +54,62 @@ import org.apache.solr.client.solrj.SolrQuery.ORDER;
  */
 public class CmsGallerySearchParameters {
 
+    /**
+     * Helper class to store a time range.<p>
+     */
+    class CmsGallerySearchTimeRange {
+
+        /** The end time of the time range. */
+        long m_endTime;
+
+        /** The start time of the time range. */
+        long m_startTime;
+
+        /**
+         * Default constructor.<p>
+         *
+         * This will create an object where the start date is equal to
+         * {@link Long#MIN_VALUE} and the end date is equal to {@link Long#MAX_VALUE}.<p>
+         */
+        public CmsGallerySearchTimeRange() {
+
+            m_startTime = Long.MIN_VALUE;
+            m_endTime = Long.MAX_VALUE;
+        }
+
+        /**
+         * Constructor with start and end time.<p>
+         *
+         * @param startTime the start time of the time range
+         * @param endTime the end time of the time range
+         */
+        public CmsGallerySearchTimeRange(long startTime, long endTime) {
+
+            m_startTime = startTime;
+            m_endTime = endTime;
+        }
+
+        /**
+         * Returns the end time of the time range.<p>
+         *
+         * @return the end time of the time range
+         */
+        public long getEndTime() {
+
+            return m_endTime;
+        }
+
+        /**
+         * Returns the start time of the time range.<p>
+         *
+         * @return the start time of the time range
+         */
+        public long getStartTime() {
+
+            return m_startTime;
+        }
+    }
+
     /** Sort parameter constants. */
     public enum CmsGallerySortParam {
 
@@ -130,62 +186,6 @@ public class CmsGallerySearchParameters {
         public static final CmsGallerySortParam DEFAULT = title_asc;
     }
 
-    /**
-     * Helper class to store a time range.<p>
-     */
-    class CmsGallerySearchTimeRange {
-
-        /** The end time of the time range. */
-        long m_endTime;
-
-        /** The start time of the time range. */
-        long m_startTime;
-
-        /**
-         * Default constructor.<p>
-         *
-         * This will create an object where the start date is equal to
-         * {@link Long#MIN_VALUE} and the end date is equal to {@link Long#MAX_VALUE}.<p>
-         */
-        public CmsGallerySearchTimeRange() {
-
-            m_startTime = Long.MIN_VALUE;
-            m_endTime = Long.MAX_VALUE;
-        }
-
-        /**
-         * Constructor with start and end time.<p>
-         *
-         * @param startTime the start time of the time range
-         * @param endTime the end time of the time range
-         */
-        public CmsGallerySearchTimeRange(long startTime, long endTime) {
-
-            m_startTime = startTime;
-            m_endTime = endTime;
-        }
-
-        /**
-         * Returns the end time of the time range.<p>
-         *
-         * @return the end time of the time range
-         */
-        public long getEndTime() {
-
-            return m_endTime;
-        }
-
-        /**
-         * Returns the start time of the time range.<p>
-         *
-         * @return the start time of the time range
-         */
-        public long getStartTime() {
-
-            return m_startTime;
-        }
-    }
-
     /** The categories to search in. */
     private List<String> m_categories;
 
@@ -247,6 +247,25 @@ public class CmsGallerySearchParameters {
     }
 
     /**
+     * Adds folders to perform the search in.
+     * @param folders Folders to search in.
+     */
+    private void addFoldersToSearchIn(final List<String> folders) {
+
+        if (null == folders) {
+            return;
+        }
+
+        for (String folder : folders) {
+            if (!CmsResource.isFolder(folder)) {
+                folder += "/";
+            }
+
+            m_foldersToSearchIn.add(folder);
+        }
+    }
+
+    /**
      * Returns the categories that have been included in the search.<p>
      *
      * If no categories have been set, then <code>null</code> is returned.<p>
@@ -256,6 +275,27 @@ public class CmsGallerySearchParameters {
     public List<String> getCategories() {
 
         return m_categories;
+    }
+
+    /**
+     * Wraps this parameters to the standard search parameters, so that inherited methods in the search index
+     * can be used.<p>
+     *
+     * @return this parameters wrapped to the standard search parameters
+     */
+    protected CmsSearchParameters getCmsSearchParams() {
+
+        CmsSearchParameters result = new CmsSearchParameters();
+        result.setFields(getFields());
+        result.setExcerptOnlySearchedFields(true);
+        if (getSearchWords() != null) {
+            result.setQuery(getSearchWords());
+            result.setIgnoreQuery(false);
+        } else {
+            result.setIgnoreQuery(true);
+        }
+
+        return result;
     }
 
     /**
@@ -512,6 +552,71 @@ public class CmsGallerySearchParameters {
     }
 
     /**
+     * Returns the Lucene sort indicated by the selected sort order.<p>
+     *
+     * @return the Lucene sort indicated by the selected sort order
+     *
+     * @see #getSortOrder()
+     */
+    private CmsPair<String, org.apache.solr.client.solrj.SolrQuery.ORDER> getSort() {
+
+        final String sortTitle = CmsSearchFieldConfiguration.getLocaleExtendedName(
+            CmsSearchField.FIELD_TITLE_UNSTORED,
+            getLocale()) + "_s";
+
+        switch (getSortOrder()) {
+            case dateCreated_asc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_CREATED, ORDER.asc);
+            case dateCreated_desc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_CREATED, ORDER.desc);
+            case dateExpired_asc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_EXPIRED, ORDER.asc);
+            case dateExpired_desc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_EXPIRED, ORDER.desc);
+            case dateLastModified_asc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_LASTMODIFIED, ORDER.asc);
+            case dateLastModified_desc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_LASTMODIFIED, ORDER.desc);
+            case dateReleased_asc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_RELEASED, ORDER.asc);
+            case dateReleased_desc:
+                return CmsPair.create(CmsSearchField.FIELD_DATE_RELEASED, ORDER.desc);
+            case length_asc:
+                return CmsPair.create(CmsSearchField.FIELD_SIZE, ORDER.asc);
+            case length_desc:
+                return CmsPair.create(CmsSearchField.FIELD_SIZE, ORDER.desc);
+            case path_asc:
+                return CmsPair.create(CmsSearchField.FIELD_PATH, ORDER.asc);
+            case path_desc:
+                return CmsPair.create(CmsSearchField.FIELD_PATH, ORDER.desc);
+            case score:
+                return CmsPair.create(CmsSearchField.FIELD_SCORE, ORDER.desc);
+            case state_asc:
+                return CmsPair.create(CmsSearchField.FIELD_STATE, ORDER.asc);
+            case state_desc:
+                return CmsPair.create(CmsSearchField.FIELD_STATE, ORDER.desc);
+            case title_asc:
+                return CmsPair.create(sortTitle, ORDER.asc);
+            case title_desc:
+                return CmsPair.create(sortTitle, ORDER.desc);
+            case type_asc:
+                return CmsPair.create(CmsSearchField.FIELD_TYPE, ORDER.asc);
+            case type_desc:
+                return CmsPair.create(CmsSearchField.FIELD_TYPE, ORDER.desc);
+            case userCreated_asc:
+                return CmsPair.create(CmsSearchField.FIELD_USER_CREATED, ORDER.asc);
+            case userCreated_desc:
+                return CmsPair.create(CmsSearchField.FIELD_USER_CREATED, ORDER.desc);
+            case userLastModified_asc:
+                return CmsPair.create(CmsSearchField.FIELD_USER_LAST_MODIFIED, ORDER.asc);
+            case userLastModified_desc:
+                return CmsPair.create(CmsSearchField.FIELD_USER_LAST_MODIFIED, ORDER.desc);
+            default:
+                return CmsPair.create(sortTitle, ORDER.asc);
+        }
+    }
+
+    /**
      * Returns the sort order that has been used in the search.<p>
      *
      * If the sort parameter has not been set the default sort order
@@ -699,6 +804,22 @@ public class CmsGallerySearchParameters {
     }
 
     /**
+     * Applies the defined search folders to the Solr query.
+     *
+     * @param obj The current CmsObject object.
+     */
+    private void setSearchFolders(CmsObject obj) {
+
+        // check if parentFolders to search in have been set
+        // if this evaluates false, the search folders have already been set, so
+        // there's no need to add a scope filter
+        if (m_foldersToSearchIn.isEmpty()) {
+            // only append scope filter if no no folders or galleries given
+            setSearchScopeFilter(obj);
+        }
+    }
+
+    /**
      * Sets the locale for the search.<p>
      *
      * Results are found only if they match the given locale.
@@ -709,6 +830,24 @@ public class CmsGallerySearchParameters {
     public void setSearchLocale(String locale) {
 
         m_locale = locale;
+    }
+
+    /**
+     * Sets the search scope.
+     *
+     * @param cms The current CmsObject object.
+     */
+    private void setSearchScopeFilter(CmsObject cms) {
+
+        final List<String> searchRoots = CmsSearchUtil.computeScopeFolders(cms, this);
+
+        // If the resource types contain the type "function" also
+        // add "/system/modules/" to the search path
+        if ((null != getResourceTypes()) && getResourceTypes().contains(CmsXmlDynamicFunctionHandler.TYPE_FUNCTION)) {
+            searchRoots.add("/system/modules/");
+        }
+
+        addFoldersToSearchIn(searchRoots);
     }
 
     /**
@@ -736,144 +875,5 @@ public class CmsGallerySearchParameters {
     public void setSortOrder(CmsGallerySortParam sortOrder) {
 
         m_sortOrder = sortOrder;
-    }
-
-    /**
-     * Wraps this parameters to the standard search parameters, so that inherited methods in the search index
-     * can be used.<p>
-     *
-     * @return this parameters wrapped to the standard search parameters
-     */
-    protected CmsSearchParameters getCmsSearchParams() {
-
-        CmsSearchParameters result = new CmsSearchParameters();
-        result.setFields(getFields());
-        result.setExcerptOnlySearchedFields(true);
-        if (getSearchWords() != null) {
-            result.setQuery(getSearchWords());
-            result.setIgnoreQuery(false);
-        } else {
-            result.setIgnoreQuery(true);
-        }
-
-        return result;
-    }
-
-    /**
-     * Adds folders to perform the search in.
-     * @param folders Folders to search in.
-     */
-    private void addFoldersToSearchIn(final List<String> folders) {
-
-        if (null == folders) {
-            return;
-        }
-
-        for (String folder : folders) {
-            if (!CmsResource.isFolder(folder)) {
-                folder += "/";
-            }
-
-            m_foldersToSearchIn.add(folder);
-        }
-    }
-
-    /**
-     * Returns the Lucene sort indicated by the selected sort order.<p>
-     *
-     * @return the Lucene sort indicated by the selected sort order
-     *
-     * @see #getSortOrder()
-     */
-    private CmsPair<String, org.apache.solr.client.solrj.SolrQuery.ORDER> getSort() {
-
-        final String sortTitle = CmsSearchFieldConfiguration.getLocaleExtendedName(
-            CmsSearchField.FIELD_TITLE_UNSTORED,
-            getLocale()) + "_s";
-
-        switch (getSortOrder()) {
-            case dateCreated_asc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_CREATED, ORDER.asc);
-            case dateCreated_desc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_CREATED, ORDER.desc);
-            case dateExpired_asc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_EXPIRED, ORDER.asc);
-            case dateExpired_desc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_EXPIRED, ORDER.desc);
-            case dateLastModified_asc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_LASTMODIFIED, ORDER.asc);
-            case dateLastModified_desc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_LASTMODIFIED, ORDER.desc);
-            case dateReleased_asc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_RELEASED, ORDER.asc);
-            case dateReleased_desc:
-                return CmsPair.create(CmsSearchField.FIELD_DATE_RELEASED, ORDER.desc);
-            case length_asc:
-                return CmsPair.create(CmsSearchField.FIELD_SIZE, ORDER.asc);
-            case length_desc:
-                return CmsPair.create(CmsSearchField.FIELD_SIZE, ORDER.desc);
-            case path_asc:
-                return CmsPair.create(CmsSearchField.FIELD_PATH, ORDER.asc);
-            case path_desc:
-                return CmsPair.create(CmsSearchField.FIELD_PATH, ORDER.desc);
-            case score:
-                return CmsPair.create(CmsSearchField.FIELD_SCORE, ORDER.asc);
-            case state_asc:
-                return CmsPair.create(CmsSearchField.FIELD_STATE, ORDER.asc);
-            case state_desc:
-                return CmsPair.create(CmsSearchField.FIELD_STATE, ORDER.desc);
-            case title_asc:
-                return CmsPair.create(sortTitle, ORDER.asc);
-            case title_desc:
-                return CmsPair.create(sortTitle, ORDER.desc);
-            case type_asc:
-                return CmsPair.create(CmsSearchField.FIELD_TYPE, ORDER.asc);
-            case type_desc:
-                return CmsPair.create(CmsSearchField.FIELD_TYPE, ORDER.desc);
-            case userCreated_asc:
-                return CmsPair.create(CmsSearchField.FIELD_USER_CREATED, ORDER.asc);
-            case userCreated_desc:
-                return CmsPair.create(CmsSearchField.FIELD_USER_CREATED, ORDER.desc);
-            case userLastModified_asc:
-                return CmsPair.create(CmsSearchField.FIELD_USER_LAST_MODIFIED, ORDER.asc);
-            case userLastModified_desc:
-                return CmsPair.create(CmsSearchField.FIELD_USER_LAST_MODIFIED, ORDER.desc);
-            default:
-                return CmsPair.create(sortTitle, ORDER.asc);
-        }
-    }
-
-    /**
-     * Applies the defined search folders to the Solr query.
-     *
-     * @param obj The current CmsObject object.
-     */
-    private void setSearchFolders(CmsObject obj) {
-
-        // check if parentFolders to search in have been set
-        // if this evaluates false, the search folders have already been set, so
-        // there's no need to add a scope filter
-        if (m_foldersToSearchIn.isEmpty()) {
-            // only append scope filter if no no folders or galleries given
-            setSearchScopeFilter(obj);
-        }
-    }
-
-    /**
-     * Sets the search scope.
-     *
-     * @param cms The current CmsObject object.
-     */
-    private void setSearchScopeFilter(CmsObject cms) {
-
-        final List<String> searchRoots = CmsSearchUtil.computeScopeFolders(cms, this);
-
-        // If the resource types contain the type "function" also
-        // add "/system/modules/" to the search path
-        if ((null != getResourceTypes()) && getResourceTypes().contains(CmsXmlDynamicFunctionHandler.TYPE_FUNCTION)) {
-            searchRoots.add("/system/modules/");
-        }
-
-        addFoldersToSearchIn(searchRoots);
     }
 }
