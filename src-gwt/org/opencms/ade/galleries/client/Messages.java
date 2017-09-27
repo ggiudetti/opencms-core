@@ -328,6 +328,9 @@ public final class Messages {
     public static final String GUI_SORT_LABEL_PATH_DESC_0 = "GUI_SORT_LABEL_PATH_DESC_0";
 
     /** Message constant for key in the resource bundle. */
+    public static final String GUI_SORT_LABEL_TITLE_0 = "GUI_SORT_LABEL_SCORE_0";
+
+    /** Message constant for key in the resource bundle. */
     public static final String GUI_SORT_LABEL_SORT_0 = "GUI_SORT_LABEL_SORT_0";
 
     /** Message constant for key in the resource bundle. */
@@ -424,14 +427,6 @@ public final class Messages {
     private static CmsMessages INSTANCE;
 
     /**
-     * Hides the public constructor for this utility class.<p>
-     */
-    private Messages() {
-
-        // hide the constructor
-    }
-
-    /**
      * Returns an instance of this localized message accessor.<p>
      *
      * @return an instance of this localized message accessor
@@ -442,6 +437,14 @@ public final class Messages {
             INSTANCE = new CmsMessages(BUNDLE_NAME);
         }
         return INSTANCE;
+    }
+
+    /**
+     * Hides the public constructor for this utility class.<p>
+     */
+    private Messages() {
+
+        // hide the constructor
     }
 
     /**

@@ -46,8 +46,7 @@ public interface I_CmsGalleryProviderConstants {
         adeView(CmsGalleryTabConfiguration.resolve(CmsGalleryTabConfiguration.TC_SELECT_DOC)),
 
         /** The wysiwyg editor mode. */
-        editor(CmsGalleryTabConfiguration.resolve(
-            CmsGalleryTabConfiguration.TC_SELECT_DOC) /* may be overwritten by configuration */),
+        editor(CmsGalleryTabConfiguration.resolve(CmsGalleryTabConfiguration.TC_SELECT_DOC) /* may be overwritten by configuration */),
 
         /** The explorer mode. */
         view(CmsGalleryTabConfiguration.resolve(CmsGalleryTabConfiguration.TC_SELECT_DOC)),
@@ -168,7 +167,10 @@ public interface I_CmsGalleryProviderConstants {
         type_asc,
 
         /** Resource type descending sorting. */
-        type_desc;
+        type_desc,
+
+        /** Score sorting. */
+        score;
     }
 
     /** The request attribute name for the close link. */

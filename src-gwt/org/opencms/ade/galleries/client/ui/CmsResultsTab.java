@@ -94,34 +94,6 @@ import com.google.gwt.user.client.ui.Widget;
 public class CmsResultsTab extends A_CmsListTab {
 
     /**
-     * Click-handler for the delete button.<p>
-     */
-    public class DeleteHandler implements ClickHandler {
-
-        /** The resource path of the selected item. */
-        protected String m_resourcePath;
-
-        /**
-         * Constructor.<p>
-         *
-         * @param resourcePath the item resource path
-         */
-        protected DeleteHandler(String resourcePath) {
-
-            m_resourcePath = resourcePath;
-        }
-
-        /**
-         * @see com.google.gwt.event.dom.client.ClickHandler#onClick(com.google.gwt.event.dom.client.ClickEvent)
-         */
-        public void onClick(ClickEvent event) {
-
-            getTabHandler().deleteResource(m_resourcePath);
-        }
-
-    }
-
-    /**
      * Scroll handler which executes an action when the user has scrolled to the bottom.<p>
      *
      * @since 8.0.0
@@ -166,6 +138,34 @@ public class CmsResultsTab extends A_CmsListTab {
                 setScrollPosition(scrollPos);
             }
         }
+    }
+
+    /**
+     * Click-handler for the delete button.<p>
+     */
+    public class DeleteHandler implements ClickHandler {
+
+        /** The resource path of the selected item. */
+        protected String m_resourcePath;
+
+        /**
+         * Constructor.<p>
+         *
+         * @param resourcePath the item resource path
+         */
+        protected DeleteHandler(String resourcePath) {
+
+            m_resourcePath = resourcePath;
+        }
+
+        /**
+         * @see com.google.gwt.event.dom.client.ClickHandler#onClick(com.google.gwt.event.dom.client.ClickEvent)
+         */
+        public void onClick(ClickEvent event) {
+
+            getTabHandler().deleteResource(m_resourcePath);
+        }
+
     }
 
     /**
@@ -260,6 +260,17 @@ public class CmsResultsTab extends A_CmsListTab {
     /** The small thumbnails view name. */
     static final String SMALL = "small";
 
+    /**
+     * Checks if the type is viewable as an image in the gallery result tab.<p>
+     *
+     * @param typeName the type to check
+     * @return true if the type can be viewed as an image in the result tab
+     */
+    public static boolean isImagelikeType(String typeName) {
+
+        return CmsGwtConstants.TYPE_IMAGE.equals(typeName);
+    }
+
     /** The handler for scrolling to the top of the scroll panel. */
     protected CmsResultsBackwardsScrollHandler m_backwardScrollHandler = new CmsResultsBackwardsScrollHandler(this);
 
@@ -348,148 +359,6 @@ public class CmsResultsTab extends A_CmsListTab {
                 getTabHandler().setResultViewType(event.getValue());
             }
         });
-    }
-
-    /**
-     * Checks if the type is viewable as an image in the gallery result tab.<p>
-     *
-     * @param typeName the type to check
-     * @return true if the type can be viewed as an image in the result tab
-     */
-    public static boolean isImagelikeType(String typeName) {
-
-        return CmsGwtConstants.TYPE_IMAGE.equals(typeName);
-    }
-
-    /**
-     * Clears all search parameters.<p>
-     */
-    @Override
-    public void clearParams() {
-
-        CmsDebugLog.getInstance().printLine("Unallowed call to clear params in result tab.");
-    }
-
-    /**
-     * Fill the content of the results tab.<p>
-     *
-     * @param searchObj the current search object containing search results
-     * @param paramPanels list of search parameter panels to show
-     */
-    public void fillContent(final CmsGallerySearchBean searchObj, List<CmsSearchParamPanel> paramPanels) {
-
-        removeNoParamMessage();
-
-        // in case there is a single type selected and the current sort order is not by type,
-        // hide the type ascending and type descending sort order options
-        SortParams currentSorting = SortParams.valueOf(searchObj.getSortOrder());
-        if ((searchObj.getTypes().size() == 1)
-            && !((currentSorting == SortParams.type_asc) || (currentSorting == SortParams.type_desc))) {
-            m_sortSelectBox.setItems(getSortList(false));
-        } else {
-            m_sortSelectBox.setItems(getSortList(true));
-        }
-        m_sortSelectBox.selectValue(searchObj.getSortOrder());
-        displayResultCount(getResultsDisplayed(searchObj), searchObj.getResultCount());
-        m_hasMoreResults = searchObj.hasMore();
-        if (searchObj.getPage() == 1) {
-            m_preset = null;
-            getList().scrollToTop();
-            clearList();
-            showParams(paramPanels);
-            m_backwardScrollHandler.updateSearchBean(searchObj);
-            getList().getElement().getStyle().clearDisplay();
-            scrollToPreset();
-
-        } else {
-            showParams(paramPanels);
-            addContent(searchObj);
-        }
-        showUpload(searchObj);
-    }
-
-    /**
-     * Returns the drag and drop handler.<p>
-     *
-     * @return the drag and drop handler
-     */
-    public CmsDNDHandler getDNDHandler() {
-
-        return m_dndHandler;
-    }
-
-    /**
-     * @see org.opencms.ade.galleries.client.ui.A_CmsTab#getParamPanels(org.opencms.ade.galleries.shared.CmsGallerySearchBean)
-     */
-    @Override
-    public List<CmsSearchParamPanel> getParamPanels(CmsGallerySearchBean searchObj) {
-
-        // not available for this tab
-        return Collections.emptyList();
-    }
-
-    /**
-     * @see org.opencms.ade.galleries.client.ui.A_CmsListTab#getRequiredHeight()
-     */
-    @Override
-    public int getRequiredHeight() {
-
-        return super.getRequiredHeight() + (m_params.isVisible() ? m_params.getOffsetHeight() + 5 : 21);
-    }
-
-    /**
-     * Returns the delete handler.<p>
-     *
-     * @param resourcePath the resource path of the resource
-     *
-     * @return the delete handler
-     */
-    public DeleteHandler makeDeleteHandler(String resourcePath) {
-
-        return new DeleteHandler(resourcePath);
-    }
-
-    /**
-     * @see org.opencms.ade.galleries.client.ui.A_CmsListTab#onResize()
-     */
-    @Override
-    public void onResize() {
-
-        super.onResize();
-        // check if more result items should be loaded to fill the available height
-        if (m_hasMoreResults
-            && !getTabHandler().isLoading()
-            && (m_list.getOffsetHeight() > (m_scrollList.getOffsetHeight() - 100))) {
-            getTabHandler().onScrollToBottom();
-        }
-    }
-
-    /**
-     * Removes the no params message.<p>
-     */
-    public void removeNoParamMessage() {
-
-        if (m_noParamsMessage != null) {
-            m_tab.remove(m_noParamsMessage);
-        }
-    }
-
-    /**
-     * Updates the height (with border) of the result list panel according to the search parameter panels shown.<p>
-     */
-    public void updateListSize() {
-
-        int paramsHeight = m_params.isVisible()
-        ? m_params.getOffsetHeight()
-            + CmsDomUtil.getCurrentStyleInt(m_params.getElement(), CmsDomUtil.Style.marginBottom)
-        : 21;
-        int optionsHeight = m_options.getOffsetHeight()
-            + CmsDomUtil.getCurrentStyleInt(m_options.getElement(), CmsDomUtil.Style.marginBottom);
-        int listTop = paramsHeight + optionsHeight + 5;
-        // another sanity check, don't set any top value below 35
-        if (listTop > 35) {
-            m_list.getElement().getStyle().setTop(listTop, Unit.PX);
-        }
     }
 
     /**
@@ -592,12 +461,144 @@ public class CmsResultsTab extends A_CmsListTab {
     }
 
     /**
+     * Clears all search parameters.<p>
+     */
+    @Override
+    public void clearParams() {
+
+        CmsDebugLog.getInstance().printLine("Unallowed call to clear params in result tab.");
+    }
+
+    /**
+     * Displays the result count.<p>
+     *
+     * @param displayed the displayed result items
+     * @param total the total of result items
+     */
+    private void displayResultCount(int displayed, int total) {
+
+        String message = Messages.get().key(
+            Messages.GUI_LABEL_NUM_RESULTS_2,
+            new Integer(displayed),
+            new Integer(total));
+        m_infoLabel.setText(message);
+    }
+
+    /**
+     * Fill the content of the results tab.<p>
+     *
+     * @param searchObj the current search object containing search results
+     * @param paramPanels list of search parameter panels to show
+     */
+    public void fillContent(final CmsGallerySearchBean searchObj, List<CmsSearchParamPanel> paramPanels) {
+
+        removeNoParamMessage();
+
+        // in case there is a single type selected and the current sort order is not by type,
+        // hide the type ascending and type descending sort order options
+        SortParams currentSorting = SortParams.valueOf(searchObj.getSortOrder());
+        if ((searchObj.getTypes().size() == 1)
+            && !((currentSorting == SortParams.type_asc) || (currentSorting == SortParams.type_desc))) {
+            m_sortSelectBox.setItems(getSortList(false));
+        } else {
+            m_sortSelectBox.setItems(getSortList(true));
+        }
+        m_sortSelectBox.selectValue(searchObj.getSortOrder());
+        displayResultCount(getResultsDisplayed(searchObj), searchObj.getResultCount());
+        m_hasMoreResults = searchObj.hasMore();
+        if (searchObj.getPage() == 1) {
+            m_preset = null;
+            getList().scrollToTop();
+            clearList();
+            showParams(paramPanels);
+            m_backwardScrollHandler.updateSearchBean(searchObj);
+            getList().getElement().getStyle().clearDisplay();
+            scrollToPreset();
+
+        } else {
+            showParams(paramPanels);
+            addContent(searchObj);
+        }
+        showUpload(searchObj);
+    }
+
+    /**
+     * Returns the drag and drop handler.<p>
+     *
+     * @return the drag and drop handler
+     */
+    public CmsDNDHandler getDNDHandler() {
+
+        return m_dndHandler;
+    }
+
+    /**
+     * @see org.opencms.ade.galleries.client.ui.A_CmsTab#getParamPanels(org.opencms.ade.galleries.shared.CmsGallerySearchBean)
+     */
+    @Override
+    public List<CmsSearchParamPanel> getParamPanels(CmsGallerySearchBean searchObj) {
+
+        // not available for this tab
+        return Collections.emptyList();
+    }
+
+    /**
+     * @see org.opencms.ade.galleries.client.ui.A_CmsListTab#getRequiredHeight()
+     */
+    @Override
+    public int getRequiredHeight() {
+
+        return super.getRequiredHeight() + (m_params.isVisible() ? m_params.getOffsetHeight() + 5 : 21);
+    }
+
+    /**
+     * Returns the count of the currently displayed results.<p>
+     *
+     * @param searchObj the search bean
+     *
+     * @return the count of the currently displayed results
+     */
+    private int getResultsDisplayed(CmsGallerySearchBean searchObj) {
+
+        int resultsDisplayed = searchObj.getMatchesPerPage() * searchObj.getLastPage();
+        return (resultsDisplayed > searchObj.getResultCount()) ? searchObj.getResultCount() : resultsDisplayed;
+    }
+
+    /**
      * @see org.opencms.ade.galleries.client.ui.A_CmsListTab#getSortList()
      */
     @Override
     protected LinkedHashMap<String, String> getSortList() {
 
         return getSortList(true);
+    }
+
+    /**
+     * Returns the list of properties to sort the results according to.<p>
+     *
+     * @param includeType <code>true</code> to include sort according to type
+     *
+     * @return the sort list
+     */
+    private LinkedHashMap<String, String> getSortList(boolean includeType) {
+
+        LinkedHashMap<String, String> list = new LinkedHashMap<String, String>();
+        list.put(SortParams.title_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TITLE_ASC_0));
+        list.put(SortParams.title_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TITLE_DECS_0));
+        list.put(
+            SortParams.dateLastModified_asc.name(),
+            Messages.get().key(Messages.GUI_SORT_LABEL_DATELASTMODIFIED_ASC_0));
+        list.put(
+            SortParams.dateLastModified_desc.name(),
+            Messages.get().key(Messages.GUI_SORT_LABEL_DATELASTMODIFIED_DESC_0));
+        list.put(SortParams.path_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_PATH_ASC_0));
+        list.put(SortParams.path_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_PATH_DESC_0));
+        list.put(SortParams.score.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TITLE_0));
+        if (includeType) {
+            list.put(SortParams.type_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TYPE_ASC_0));
+            list.put(SortParams.type_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TYPE_DESC_0));
+        }
+        return list;
     }
 
     /**
@@ -617,6 +618,62 @@ public class CmsResultsTab extends A_CmsListTab {
 
         // quick filter not available for this tab
         return false;
+    }
+
+    /**
+     * Checks if the thumbnail tiling view is allowed for the given result items.<p>
+     *
+     * @return <code>true</code> if the thumbnail tiling view is allowed for the given result items
+     */
+    private boolean isTilingViewAllowed() {
+
+        if (m_types.size() == 0) {
+            return false;
+        }
+        for (String typeName : m_types) {
+            if (!isImagelikeType(typeName)) {
+                return false;
+            }
+        }
+        return true;
+
+    }
+
+    /**
+     * Returns the delete handler.<p>
+     *
+     * @param resourcePath the resource path of the resource
+     *
+     * @return the delete handler
+     */
+    public DeleteHandler makeDeleteHandler(String resourcePath) {
+
+        return new DeleteHandler(resourcePath);
+    }
+
+    /**
+     * @see org.opencms.ade.galleries.client.ui.A_CmsListTab#onResize()
+     */
+    @Override
+    public void onResize() {
+
+        super.onResize();
+        // check if more result items should be loaded to fill the available height
+        if (m_hasMoreResults
+            && !getTabHandler().isLoading()
+            && (m_list.getOffsetHeight() > (m_scrollList.getOffsetHeight() - 100))) {
+            getTabHandler().onScrollToBottom();
+        }
+    }
+
+    /**
+     * Removes the no params message.<p>
+     */
+    public void removeNoParamMessage() {
+
+        if (m_noParamsMessage != null) {
+            m_tab.remove(m_noParamsMessage);
+        }
     }
 
     /**
@@ -655,6 +712,24 @@ public class CmsResultsTab extends A_CmsListTab {
     }
 
     /**
+     * Selects the view with the given name.<p>
+     *
+     * @param viewName the view name
+     */
+    void selectView(String viewName) {
+
+        if (DETAILS.equals(viewName)) {
+            getList().removeStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
+        } else if (SMALL.equals(viewName)) {
+            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
+            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().smallThumbnails());
+        } else if (BIG.equals(viewName)) {
+            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
+            getList().removeStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().smallThumbnails());
+        }
+    }
+
+    /**
      * Helper for setting the scroll position of the scroll panel.<p>
      *
      * @param pos the scroll position
@@ -675,98 +750,6 @@ public class CmsResultsTab extends A_CmsListTab {
 
             }
         });
-
-    }
-
-    /**
-     * Selects the view with the given name.<p>
-     *
-     * @param viewName the view name
-     */
-    void selectView(String viewName) {
-
-        if (DETAILS.equals(viewName)) {
-            getList().removeStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
-        } else if (SMALL.equals(viewName)) {
-            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
-            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().smallThumbnails());
-        } else if (BIG.equals(viewName)) {
-            getList().addStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().tilingList());
-            getList().removeStyleName(I_CmsLayoutBundle.INSTANCE.galleryResultItemCss().smallThumbnails());
-        }
-    }
-
-    /**
-     * Displays the result count.<p>
-     *
-     * @param displayed the displayed result items
-     * @param total the total of result items
-     */
-    private void displayResultCount(int displayed, int total) {
-
-        String message = Messages.get().key(
-            Messages.GUI_LABEL_NUM_RESULTS_2,
-            new Integer(displayed),
-            new Integer(total));
-        m_infoLabel.setText(message);
-    }
-
-    /**
-     * Returns the count of the currently displayed results.<p>
-     *
-     * @param searchObj the search bean
-     *
-     * @return the count of the currently displayed results
-     */
-    private int getResultsDisplayed(CmsGallerySearchBean searchObj) {
-
-        int resultsDisplayed = searchObj.getMatchesPerPage() * searchObj.getLastPage();
-        return (resultsDisplayed > searchObj.getResultCount()) ? searchObj.getResultCount() : resultsDisplayed;
-    }
-
-    /**
-     * Returns the list of properties to sort the results according to.<p>
-     *
-     * @param includeType <code>true</code> to include sort according to type
-     *
-     * @return the sort list
-     */
-    private LinkedHashMap<String, String> getSortList(boolean includeType) {
-
-        LinkedHashMap<String, String> list = new LinkedHashMap<String, String>();
-        list.put(SortParams.title_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TITLE_ASC_0));
-        list.put(SortParams.title_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TITLE_DECS_0));
-        list.put(
-            SortParams.dateLastModified_asc.name(),
-            Messages.get().key(Messages.GUI_SORT_LABEL_DATELASTMODIFIED_ASC_0));
-        list.put(
-            SortParams.dateLastModified_desc.name(),
-            Messages.get().key(Messages.GUI_SORT_LABEL_DATELASTMODIFIED_DESC_0));
-        list.put(SortParams.path_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_PATH_ASC_0));
-        list.put(SortParams.path_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_PATH_DESC_0));
-        if (includeType) {
-            list.put(SortParams.type_asc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TYPE_ASC_0));
-            list.put(SortParams.type_desc.name(), Messages.get().key(Messages.GUI_SORT_LABEL_TYPE_DESC_0));
-        }
-        return list;
-    }
-
-    /**
-     * Checks if the thumbnail tiling view is allowed for the given result items.<p>
-     *
-     * @return <code>true</code> if the thumbnail tiling view is allowed for the given result items
-     */
-    private boolean isTilingViewAllowed() {
-
-        if (m_types.size() == 0) {
-            return false;
-        }
-        for (String typeName : m_types) {
-            if (!isImagelikeType(typeName)) {
-                return false;
-            }
-        }
-        return true;
 
     }
 
@@ -852,5 +835,23 @@ public class CmsResultsTab extends A_CmsListTab {
             m_uploadButton.disable(Messages.get().key(Messages.GUI_GALLERY_UPLOAD_TARGET_UNSPECIFIC_0));
         }
 
+    }
+
+    /**
+     * Updates the height (with border) of the result list panel according to the search parameter panels shown.<p>
+     */
+    public void updateListSize() {
+
+        int paramsHeight = m_params.isVisible()
+        ? m_params.getOffsetHeight()
+            + CmsDomUtil.getCurrentStyleInt(m_params.getElement(), CmsDomUtil.Style.marginBottom)
+        : 21;
+        int optionsHeight = m_options.getOffsetHeight()
+            + CmsDomUtil.getCurrentStyleInt(m_options.getElement(), CmsDomUtil.Style.marginBottom);
+        int listTop = paramsHeight + optionsHeight + 5;
+        // another sanity check, don't set any top value below 35
+        if (listTop > 35) {
+            m_list.getElement().getStyle().setTop(listTop, Unit.PX);
+        }
     }
 }
