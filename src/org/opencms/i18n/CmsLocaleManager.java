@@ -43,6 +43,7 @@ import org.opencms.xml.content.CmsXmlContent;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -84,6 +85,13 @@ public class CmsLocaleManager implements I_CmsEventListener {
 
     /** The default locale, this is the first configured locale. */
     private static Locale m_defaultLocale = Locale.ENGLISH;
+
+    /**
+     * Required for setting the default locale on the first possible time.<p>
+     */
+    static {
+        setDefaultLocale();
+    }
 
     /** The set of available locale names. */
     private List<Locale> m_availableLocales;
@@ -138,13 +146,6 @@ public class CmsLocaleManager implements I_CmsEventListener {
         m_defaultLocale = defaultLocale;
         m_defaultLocales.add(defaultLocale);
         m_availableLocales.add(defaultLocale);
-    }
-
-    /**
-     * Required for setting the default locale on the first possible time.<p>
-     */
-    static {
-        setDefaultLocale();
     }
 
     /**
@@ -528,7 +529,7 @@ public class CmsLocaleManager implements I_CmsEventListener {
      */
     public List<Locale> getAvailableLocales() {
 
-        return m_availableLocales;
+        return Collections.unmodifiableList(m_availableLocales);
     }
 
     /**
@@ -558,7 +559,7 @@ public class CmsLocaleManager implements I_CmsEventListener {
             result = getAvailableLocales(availableNames);
         }
         if ((result == null) || (result.size() == 0)) {
-            return m_availableLocales;
+            return Collections.unmodifiableList(m_availableLocales);
         } else {
             return result;
         }
@@ -591,7 +592,7 @@ public class CmsLocaleManager implements I_CmsEventListener {
             result = getAvailableLocales(availableNames);
         }
         if ((result == null) || (result.size() == 0)) {
-            return m_availableLocales;
+            return Collections.unmodifiableList(m_availableLocales);
         } else {
             return result;
         }
