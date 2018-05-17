@@ -1076,7 +1076,7 @@ public class CmsSearchManager implements I_CmsScheduledJob, I_CmsEventListener {
             }
         } catch (Exception e) {
             LOG.error(
-                Messages.get().container(
+                Messages.get().getBundle().key(
                     Messages.ERR_SOLR_CORE_CONTAINER_NOT_CREATED_1,
                     m_solrConfig.getSolrFile().getAbsolutePath()),
                 e);
@@ -3118,14 +3118,8 @@ public class CmsSearchManager implements I_CmsScheduledJob, I_CmsEventListener {
     }
 
     /**
-     * Updates all offline indexes.<p>
-     *
-     * Can be used to force an index update when it's not convenient to wait until the
-     * offline update interval has eclipsed.<p>
-     *
-     * Since the offline indexes still need some time to update the new resources,
-     * the method waits for at most the configurable <code>maxIndexWaitTime</code>
-     * to ensure that updating is finished.
+     * Returns the report in the given event data, if <code>null</code>
+     * a new log report is used.<p>
      *
      * @see #updateOfflineIndexes(long)
      *

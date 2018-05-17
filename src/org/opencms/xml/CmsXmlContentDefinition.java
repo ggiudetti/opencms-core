@@ -385,8 +385,13 @@ public class CmsXmlContentDefinition implements Cloneable {
         CmsXmlContentDefinition result = getCachedContentDefinition(schemaLocation, resolver);
         if (result == null) {
             // content definition was not found in the cache, unmarshal the XML document
-            InputSource source = resolver.resolveEntity(null, schemaLocation);
-            result = unmarshalInternal(CmsXmlUtils.unmarshalHelper(source, resolver), schemaLocation, resolver);
+            InputSource source = null;
+            try {
+                source = resolver.resolveEntity(null, schemaLocation);
+                result = unmarshalInternal(CmsXmlUtils.unmarshalHelper(source, resolver), schemaLocation, resolver);
+            } catch (IOException e) {
+                throw new CmsXmlException(Messages.get().container(Messages.ERR_UNMARSHALLING_XML_SCHEMA_NOT_FOUND_2,resourcename, schemaLocation));
+            }
         }
         return result;
     }
@@ -429,12 +434,18 @@ public class CmsXmlContentDefinition implements Cloneable {
      */
     public static CmsXmlContentDefinition unmarshal(InputSource source, String schemaLocation, EntityResolver resolver)
     throws CmsXmlException {
-
         schemaLocation = translateSchema(schemaLocation);
         CmsXmlContentDefinition result = getCachedContentDefinition(schemaLocation, resolver);
         if (result == null) {
             // content definition was not found in the cache, unmarshal the XML document
-            result = unmarshalInternal(CmsXmlUtils.unmarshalHelper(source, resolver), schemaLocation, resolver);
+            if (null == source) {
+                throw new CmsXmlException(
+                        Messages.get().container(
+                                Messages.ERR_UNMARSHALLING_XML_DOC_1,
+                                String.format("schemaLocation: '%s'. source: null!", schemaLocation)));
+            }
+            Document doc = CmsXmlUtils.unmarshalHelper(source, resolver);
+            result = unmarshalInternal(doc, schemaLocation, resolver);
         }
         return result;
     }
@@ -486,7 +497,15 @@ public class CmsXmlContentDefinition implements Cloneable {
         CmsXmlContentDefinition result = getCachedContentDefinition(schemaLocation, resolver);
         if (result == null) {
             // content definition was not found in the cache, unmarshal the XML document
-            result = unmarshalInternal(CmsXmlUtils.unmarshalHelper(xmlData, resolver), schemaLocation, resolver);
+            try {
+                Document doc = CmsXmlUtils.unmarshalHelper(xmlData, resolver);
+                result = unmarshalInternal(doc, schemaLocation, resolver);
+            } catch (CmsXmlException e) {
+                throw new CmsXmlException(
+                        Messages.get().container(
+                                Messages.ERR_UNMARSHALLING_XML_DOC_1,
+                                String.format("schemaLocation: '%s'. xml: '%s'", schemaLocation, xmlData)), e);
+            }
         }
         return result;
     }
@@ -912,7 +931,20 @@ public class CmsXmlContentDefinition implements Cloneable {
                     try {
                         source = resolver.resolveEntity(null, schemaLoc);
                     } catch (Exception e) {
-                        throw new CmsXmlException(Messages.get().container(Messages.ERR_CD_BAD_INCLUDE_1, schemaLoc));
+                        throw new CmsXmlException(
+                                Messages.get().container(Messages.ERR_CD_BAD_INCLUDE_3,
+                                        schemaLoc,
+                                        schemaLocation,
+                                        document.asXML()),
+                                e);
+                    }
+                    // Couldn't resolve the entity?
+                    if (null == source) {
+                        throw new CmsXmlException(
+                                Messages.get().container(Messages.ERR_CD_BAD_INCLUDE_3,
+                                        schemaLoc,
+                                        schemaLocation,
+                                        document.asXML()));
                     }
                     CmsXmlContentDefinition xmlContentDefinition = unmarshal(source, schemaLoc, resolver);
                     nestedDefinitions.add(xmlContentDefinition);

@@ -52,6 +52,9 @@ public final class Messages extends A_CmsMessageBundle {
     public static final String ERR_ALREADY_INITIALIZED_0 = "ERR_ALREADY_INITIALIZED_0";
 
     /** Message constant for key in the resource bundle. */
+    public static final String ERR_CALLING_EVENT_LISTENER_FAILED_2 = "ERR_CALLING_EVENT_LISTENER_FAILED_2";
+
+    /** Message constant for key in the resource bundle. */
     public static final String ERR_CONTEXT_INFO_FROZEN_0 = "ERR_CONTEXT_INFO_FROZEN_0";
 
     /** Message constant for key in the resource bundle. */
@@ -128,6 +131,9 @@ public final class Messages extends A_CmsMessageBundle {
 
     /** Message constant for key in the resource bundle. */
     public static final String ERR_READ_INTERNAL_RESOURCE_1 = "ERR_READ_INTERNAL_RESOURCE_1";
+
+    /** Message constant for key in the resource bundle. */
+    public static final String ERR_READ_FORMATTER_CONFIG_4 = "ERR_READ_FORMATTER_CONFIG_4";
 
     /** Message constant for key in the resource bundle. */
     public static final String ERR_REQUEST_SECURE_RESOURCE_0 = "ERR_REQUEST_SECURE_RESOURCE_0";
