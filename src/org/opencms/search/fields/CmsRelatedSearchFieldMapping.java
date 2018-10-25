@@ -29,8 +29,16 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 
+/**
+ * Descrive come mappare il contenuto di un oggetto associato rispetto a un certo locale:
+ * <mapping type="dynamic" class="org.opencms.search.fields.CmsRelatedSearchFieldMapping">it|Localita,it|Titolo</mapping>
+ * indica che durante l'indicizzazione del locale 'it' verrà letto il campo Titolo dal locale 'it' del contenuto associato
+ * nel campo 'Localita'
+ *
+ */
 public class CmsRelatedSearchFieldMapping implements I_CmsSearchFieldMapping {
 
+    @SuppressWarnings("javadoc")
     private static final long serialVersionUID = -79901500058147921L;
     /** The log object for this class. */
     private static final Log LOG = CmsLog.getLog(CmsRelatedSearchFieldMapping.class);
