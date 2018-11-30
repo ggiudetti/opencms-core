@@ -30,6 +30,7 @@ package org.opencms.workplace.tools.workplace.logging;
 import org.opencms.jsp.CmsJspActionElement;
 import org.opencms.main.CmsLog;
 import org.opencms.main.CmsRuntimeException;
+import org.opencms.util.CmsLog4jUtil;
 import org.opencms.workplace.list.A_CmsListDialog;
 import org.opencms.workplace.list.CmsListColumnAlignEnum;
 import org.opencms.workplace.list.CmsListColumnDefinition;
@@ -42,9 +43,7 @@ import org.opencms.workplace.list.CmsListSearchAction;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -207,6 +206,57 @@ public class CmsLog4JAdminDialog extends A_CmsListDialog {
             "lo",
             CmsListOrderEnum.ORDER_ASCENDING,
             null);
+    }
+
+    /**
+     * Gets list of all configured loggers and their ancestors.
+     *
+     * @return the list of all loggers
+     */
+    public static List<Logger> getAllLoggers() {
+
+        return CmsLog4jUtil.getAllLoggers();
+
+    }
+
+    /**
+     * Gets the parent name of the given logger name.<p>
+     *
+     * @param loggerName the logger name
+     * @return the parent name
+     */
+    public static String getParentLoggerName(String loggerName) {
+
+        int dotIndex = loggerName.lastIndexOf(".");
+        if (dotIndex < 0) {
+            return null;
+        } else {
+            return loggerName.substring(0, dotIndex);
+        }
+
+    }
+
+    /**
+     * Returns the file name or <code>null</code> associated with the given appender.<p>
+     *
+     * @param app the appender
+     *
+     * @return the file name
+     */
+    protected static String getFileName(Appender app) {
+
+        return ((FileAppender)app).getFile();
+    }
+
+    /**
+     * Gets the parent logger.
+     * @param logger the logger
+     * @return the parent logger
+     */
+    protected static Logger getParentLogger(Logger logger) {
+
+        return (Logger)(logger.getParent());
+
     }
 
     /**
@@ -378,80 +428,61 @@ public class CmsLog4JAdminDialog extends A_CmsListDialog {
     /**
      * @see org.opencms.workplace.list.A_CmsListDialog#getListItems()
      */
+    @SuppressWarnings({"unchecked"})
     @Override
     protected List<CmsListItem> getListItems() {
 
         // collect all the values for "Log-channels", "Log-channels-parents" and "Log-channels-level"
         List<CmsListItem> items = new LinkedList<CmsListItem>();
-        List<Logger> loggers = getLoggers();
+        List<Logger> loggers = getAllLoggers();
         Iterator<Logger> iterator = loggers.iterator();
         while (iterator.hasNext()) {
             Logger logger = iterator.next();
             CmsListItem item = getList().newItem(logger.getName());
             item.set(COLUMN_CHANNELS, logger.getName());
-            Category parentLogger = logger.getParent();
+            Category parentLogger = getParentLogger(logger);
             if (parentLogger == null) {
                 item.set(COLUMN_PARENT_CHANNELS, "");
             } else {
-                item.set(COLUMN_PARENT_CHANNELS, logger.getParent().getName());
+                item.set(COLUMN_PARENT_CHANNELS, parentLogger.getName());
             }
             item.set(COLUMN_LOG_LEVEL, String.valueOf(logger.getEffectiveLevel()));
 
             String test = "";
-            @SuppressWarnings("unchecked")
-            List<Appender> appenders = Collections.list(logger.getAllAppenders());
-            Iterator<Appender> appendersIt = appenders.iterator();
             int count = 0;
             // select the Appender from logger
-            while (appendersIt.hasNext()) {
-                Appender appender = appendersIt.next();
+            for (Appender appender : (List<Appender>)(Collections.list(logger.getAllAppenders()))) {
                 // only use file appenders
                 if (appender instanceof FileAppender) {
-                    FileAppender fapp = (FileAppender)appender;
+                    String fileName = getFileName(appender);
                     String temp = "";
-                    temp = fapp.getFile().substring(fapp.getFile().lastIndexOf(File.separatorChar) + 1);
+                    temp = fileName.substring(fileName.lastIndexOf(File.separatorChar) + 1);
                     test = test + temp;
                     count++;
                     break;
                 }
             }
-            @SuppressWarnings("unchecked")
-            List<Appender> parentAppenders = Collections.list(logger.getParent().getAllAppenders());
-            Iterator<Appender> parentAppendersIt = parentAppenders.iterator();
-            // if no Appender found from logger, select the Appender from parent logger
-            if (count == 0) {
-                while (parentAppendersIt.hasNext()) {
-                    Appender appender = parentAppendersIt.next();
-                    // only use file appenders
-                    if (appender instanceof FileAppender) {
-                        FileAppender fapp = (FileAppender)appender;
-                        String temp = "";
-                        temp = fapp.getFile().substring(fapp.getFile().lastIndexOf(File.separatorChar) + 1);
-                        test = test + temp;
-                        count++;
-                        break;
+
+            //iterate all parent loggers until a logger with appender was found
+            while (!logger.equals(LogManager.getRootLogger())) {
+
+                logger = (getParentLogger(logger));
+                // if no Appender found from logger, select the Appender from parent logger
+                if (count == 0) {
+                    for (Appender appender : (List<Appender>)(Collections.list(logger.getAllAppenders()))) {
+                        // only use file appenders
+                        if (appender instanceof FileAppender) {
+                            String fileName = getFileName(appender);
+                            String temp = "";
+                            temp = fileName.substring(fileName.lastIndexOf(File.separatorChar) + 1);
+                            test = test + temp;
+                            count++;
+                            break;
+                        }
                     }
                 }
             }
 
-            if (count == 0) {
-                @SuppressWarnings("unchecked")
-                List<Appender> rootAppenders = Collections.list(Logger.getRootLogger().getAllAppenders());
-                Iterator<Appender> rootAppendersIt = rootAppenders.iterator();
-                // if no Appender found from parent logger, select the Appender from root logger
-                while (rootAppendersIt.hasNext()) {
-                    Appender appender = rootAppendersIt.next();
-                    // only use file appenders
-                    if (appender instanceof FileAppender) {
-                        FileAppender fapp = (FileAppender)appender;
-                        String temp = "";
-                        temp = fapp.getFile().substring(fapp.getFile().lastIndexOf(File.separatorChar) + 1);
-                        test = test + temp;
-                        break;
-                    }
-                }
-
-            }
             item.set(COLUMN_LOG_FILE, test);
             items.add(item);
         }
@@ -864,127 +895,6 @@ public class CmsLog4JAdminDialog extends A_CmsListDialog {
     }
 
     /**
-     * Simple function to get the prefix of an logchannel name.<p>
-     *
-     * @param logname the full name of the logging channel
-     *
-     * @return a string array with different package prefixes
-     */
-    private String[] buildsufix(String logname) {
-
-        // help String array to store all combination
-        String[] prefix_temp = new String[logname.length()];
-        int count = 0;
-        while (logname.indexOf(".") > 1) {
-            // separate the name of the logger into pieces of name and separator e.g.: "org."
-            String subprefix = logname.substring(0, logname.indexOf(".") + 1);
-            logname = logname.replace(subprefix, "");
-            if (logname.indexOf(".") > 1) {
-                if (count > 0) {
-                    // build different suffixes based on the pieces separated above
-                    prefix_temp[count] = prefix_temp[count - 1] + subprefix;
-                } else {
-                    // if it's the first piece of the name only it will be set
-                    prefix_temp[count] = subprefix;
-
-                }
-            }
-            count++;
-        }
-        // if the logger name has more then one piece
-        if (count >= 1) {
-            // create result string array
-            String[] prefix = new String[count - 1];
-            // copy all different prefixes to one array with right size
-            for (int i = 0; i < (count - 1); i++) {
-                prefix[i] = prefix_temp[i].substring(0, prefix_temp[i].length() - 1);
-            }
-            // return all different prefixes
-            return prefix;
-        }
-        // if the logger name has only one or less piece
-        else {
-            // return the full logger name
-            String[] nullreturn = new String[1];
-            nullreturn[0] = logname;
-            return nullreturn;
-        }
-    }
-
-    /**
-     * Help function to get all loggers from LogManager.<p>
-     *
-     * @return List of Logger
-     */
-    private List<Logger> getLoggers() {
-
-        // list of all loggers
-        List<Logger> definedLoggers = new ArrayList<Logger>();
-        // list of all parent loggers
-        List<Logger> packageLoggers = new ArrayList<Logger>();
-        @SuppressWarnings("unchecked")
-        List<Logger> curentloggerlist = Collections.list(LogManager.getCurrentLoggers());
-        Iterator<Logger> it_curentlogger = curentloggerlist.iterator();
-        // get all current loggers
-        while (it_curentlogger.hasNext()) {
-            // get the logger
-            Logger log = it_curentlogger.next();
-            String logname = log.getName();
-            String[] prefix = buildsufix(logname);
-            // create all possible package logger from given logger name
-            for (int i = 0; i < prefix.length; i++) {
-                // get the name of the logger without the prefix
-                String temp = log.getName().replace(prefix[i], "");
-                // if the name has suffix
-                if (temp.length() > 1) {
-                    temp = temp.substring(1);
-                }
-                if (temp.lastIndexOf(".") > 1) {
-                    // generate new logger with "org.opencms" prefix and the next element
-                    // between the points e.g.: "org.opencms.search"
-                    Logger temp_logger = Logger.getLogger(prefix[i] + "." + temp.substring(0, temp.indexOf(".")));
-                    // activate the heredity so the logger get the appender from parent logger
-                    temp_logger.setAdditivity(true);
-                    // add the logger to the packageLoggers list if it is not part of it
-                    if (!packageLoggers.contains(temp_logger)) {
-                        packageLoggers.add(temp_logger);
-                    }
-                }
-            }
-            definedLoggers.add(log);
-
-        }
-
-        Iterator<Logger> it_logger = packageLoggers.iterator();
-        // iterate about all packageLoggers
-        while (it_logger.hasNext()) {
-            Logger temp = it_logger.next();
-            // check if the logger is part of the logger list
-            if (!definedLoggers.contains(temp)) {
-                // add the logger to the logger list
-                definedLoggers.add(temp);
-            }
-        }
-
-        // sort all loggers by name
-        Collections.sort(definedLoggers, new Comparator<Object>() {
-
-            public int compare(Logger o1, Logger o2) {
-
-                return String.CASE_INSENSITIVE_ORDER.compare(o1.getName(), o2.getName());
-            }
-
-            public int compare(Object obj, Object obj1) {
-
-                return compare((Logger)obj, (Logger)obj1);
-            }
-
-        });
-        // return all loggers
-        return definedLoggers;
-    }
-
-    /**
      * Simple function to set all child loggers to the same value of parent
      * logger if the parent logger leves is changed.<p>
      *
@@ -993,7 +903,7 @@ public class CmsLog4JAdminDialog extends A_CmsListDialog {
     private void isparentlogger(Logger logchannel) {
 
         // get all log channels
-        List<Logger> referenz = getLoggers();
+        List<Logger> referenz = getAllLoggers();
         Iterator<Logger> it_logger = referenz.iterator();
         while (it_logger.hasNext()) {
             Logger child_test = it_logger.next();
