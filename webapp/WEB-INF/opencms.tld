@@ -2137,6 +2137,14 @@
             <required>false</required>
             <rtexprvalue>true</rtexprvalue>
          </attribute>
+         <attribute>
+            <description><![CDATA[
+              Flag to indicate if the included file should be cacheable in the Flex Cache.</P>
+              Default: "true".
+            ]]></description>
+            <name>cacheable</name>
+            <rtexprvalue>true</rtexprvalue>
+         </attribute>
     </tag>
     <tag>
         <description><![CDATA[

@@ -566,6 +566,9 @@ public class CmsJspTagContainer extends BodyTagSupport {
     /** The evaluated body content if available. */
     private String m_bodyContent;
 
+    /** Flag, indicating if the contents should be cacheable. */
+    private boolean m_cacheable;
+
     /** States if this container should only be displayed on detail pages. */
     private boolean m_detailOnly;
 
@@ -863,6 +866,16 @@ public class CmsJspTagContainer extends BodyTagSupport {
             }
         }
         return element;
+    }
+
+    /**
+     * Returns the cacheable.<p>
+     *
+     * @return the cacheable
+     */
+    public boolean getCacheble() {
+
+        return m_cacheable;
     }
 
     /**
@@ -1443,7 +1456,7 @@ public class CmsJspTagContainer extends BodyTagSupport {
                                 null,
                                 locale,
                                 false,
-                                isOnline,
+                                (isOnline ? m_cacheable : false),
                                 null,
                                 CmsRequestUtil.getAtrributeMap(req),
                                 req,
@@ -1541,7 +1554,7 @@ public class CmsJspTagContainer extends BodyTagSupport {
                             null,
                             locale,
                             false,
-                            isOnline,
+                            (isOnline ? m_cacheable : false),
                             null,
                             CmsRequestUtil.getAtrributeMap(req),
                             req,
@@ -1562,6 +1575,26 @@ public class CmsJspTagContainer extends BodyTagSupport {
             }
             return result;
         }
+    }
+
+    /**
+     * Sets the cacheable.<p>
+     *
+     * @param cacheable the cacheable to set
+     */
+    public void setcacheable(boolean cacheable) {
+
+        m_cacheable = cacheable;
+    }
+
+    /**
+     * Sets the cacheable.<p>
+     *
+     * @param cacheable the editable to set
+     */
+    public void setcacheable(String cacheable) {
+
+        m_cacheable = Boolean.valueOf(cacheable).booleanValue();
     }
 
     /**
