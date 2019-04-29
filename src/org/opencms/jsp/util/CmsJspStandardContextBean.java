@@ -43,6 +43,7 @@ import org.opencms.file.CmsRequestContext;
 import org.opencms.file.CmsResource;
 import org.opencms.file.CmsResourceFilter;
 import org.opencms.file.history.CmsHistoryResourceHandler;
+import org.opencms.file.types.CmsResourceTypeXmlContainerPage;
 import org.opencms.flex.CmsFlexController;
 import org.opencms.flex.CmsFlexRequest;
 import org.opencms.gwt.shared.CmsGwtConstants;
@@ -1249,6 +1250,57 @@ public final class CmsJspStandardContextBean {
     }
 
     /**
+     * Returns the container page bean for the give page and locale.<p>
+     *
+     * @param page the container page resource as id, path or already as resource
+     * @param locale the content locale as locale or string
+     *
+     * @return the container page bean
+     */
+    public CmsContainerPageBean getPage(Object page, Object locale) {
+
+        CmsResource pageResource = null;
+        CmsContainerPageBean result = null;
+        if (m_cms != null) {
+            try {
+                pageResource = CmsJspElFunctions.convertRawResource(m_cms, page);
+                Locale l = CmsJspElFunctions.convertLocale(locale);
+                result = getPage(pageResource);
+                if (result != null) {
+                    CmsADEConfigData adeConfig = OpenCms.getADEManager().lookupConfiguration(
+                        m_cms,
+                        pageResource.getRootPath());
+                    for (CmsContainerBean container : result.getContainers().values()) {
+                        for (CmsContainerElementBean element : container.getElements()) {
+                            boolean isGroupContainer = element.isGroupContainer(m_cms);
+                            boolean isInheritedContainer = element.isInheritedContainer(m_cms);
+                            I_CmsFormatterBean formatterConfig = null;
+                            if (!isGroupContainer && !isInheritedContainer) {
+                                element.initResource(m_cms);
+                                // ensure that the formatter configuration id is added to the element settings, so it will be persisted on save
+                                formatterConfig = CmsJspTagContainer.getFormatterConfigurationForElement(
+                                    m_cms,
+                                    element,
+                                    adeConfig,
+                                    container.getName(),
+                                    "",
+                                    0);
+                                if (formatterConfig != null) {
+                                    element.initSettings(m_cms, formatterConfig, l, m_request, null);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.warn(e.getLocalizedMessage(), e);
+            }
+
+        }
+        return result;
+    }
+
+    /**
      * Returns the current container page resource.<p>
      *
      * @return the current container page resource
@@ -1707,32 +1759,22 @@ public final class CmsJspStandardContextBean {
     /**
      * Initializes the requested container page.<p>
      *
-     * @param cms the cms context
-     * @param req the current request
-     *
      * @throws CmsException in case reading the requested resource fails
      */
-    public void initPage(CmsObject cms, HttpServletRequest req) throws CmsException {
+    public void initPage() throws CmsException {
 
-        if (m_page == null) {
-            String requestUri = cms.getRequestContext().getUri();
+        if ((m_page == null) && (m_cms != null)) {
+            String requestUri = m_cms.getRequestContext().getUri();
             // get the container page itself, checking the history first
-            CmsResource pageResource = (CmsResource)CmsHistoryResourceHandler.getHistoryResource(req);
+            CmsResource pageResource = (CmsResource)CmsHistoryResourceHandler.getHistoryResource(m_request);
             if (pageResource == null) {
-                pageResource = cms.readResource(requestUri);
+                pageResource = m_cms.readResource(requestUri);
             }
-            CmsXmlContainerPage xmlContainerPage = CmsXmlContainerPageFactory.unmarshal(cms, pageResource, req);
-            m_page = xmlContainerPage.getContainerPage(cms);
-            CmsModelGroupHelper modelHelper = new CmsModelGroupHelper(
-                cms,
-                OpenCms.getADEManager().lookupConfiguration(cms, cms.getRequestContext().getRootUri()),
-                CmsJspTagEditable.isEditableRequest(req) ? CmsADESessionCache.getCache(req, cms) : null,
-                CmsContainerpageService.isEditingModelGroups(cms, pageResource));
-            m_page = modelHelper.readModelGroups(xmlContainerPage.getContainerPage(cms));
-            m_page = CmsTemplateMapper.get(req).transformContainerpageBean(
-                cms,
+            m_page = getPage(pageResource);
+            m_page = CmsTemplateMapper.get(m_request).transformContainerpageBean(
+                m_cms,
                 m_page,
-                xmlContainerPage.getFile().getRootPath());
+                pageResource.getRootPath());
 
         }
     }
@@ -2092,6 +2134,33 @@ public final class CmsJspStandardContextBean {
     }
 
     /**
+     * Returns the container page bean for the give resource.<p>
+     *
+     * @param pageResource the resource
+     *
+     * @return the container page bean
+     *
+     * @throws CmsException in case reading the page bean fails
+     */
+    private CmsContainerPageBean getPage(CmsResource pageResource) throws CmsException {
+
+        CmsContainerPageBean result = null;
+        if ((pageResource != null) && CmsResourceTypeXmlContainerPage.isContainerPage(pageResource)) {
+            CmsXmlContainerPage xmlContainerPage = CmsXmlContainerPageFactory.unmarshal(m_cms, pageResource, m_request);
+            result = xmlContainerPage.getContainerPage(m_cms);
+            CmsModelGroupHelper modelHelper = new CmsModelGroupHelper(
+                m_cms,
+                OpenCms.getADEManager().lookupConfiguration(m_cms, pageResource.getRootPath()),
+                CmsJspTagEditable.isEditableRequest(m_request) && (m_request instanceof HttpServletRequest)
+                ? CmsADESessionCache.getCache((HttpServletRequest)m_request, m_cms)
+                : null,
+                CmsContainerpageService.isEditingModelGroups(m_cms, pageResource));
+            result = modelHelper.readModelGroups(xmlContainerPage.getContainerPage(m_cms));
+        }
+        return result;
+    }
+
+    /**
      * Convenience method for getting a request attribute without an explicit cast.<p>
      *
      * @param name the attribute name
@@ -2113,7 +2182,7 @@ public final class CmsJspStandardContextBean {
         if (m_metaMappings == null) {
             m_metaMappings = new HashMap<String, MetaMapping>();
             try {
-                initPage(m_cms, (HttpServletRequest)m_request);
+                initPage();
                 CmsMacroResolver resolver = new CmsMacroResolver();
                 resolver.setKeepEmptyMacros(true);
                 resolver.setCmsObject(m_cms);

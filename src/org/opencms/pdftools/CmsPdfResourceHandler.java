@@ -30,6 +30,7 @@ package org.opencms.pdftools;
 import org.opencms.file.CmsFile;
 import org.opencms.file.CmsObject;
 import org.opencms.file.CmsResource;
+import org.opencms.file.CmsVfsResourceNotFoundException;
 import org.opencms.file.wrapper.CmsWrappedResource;
 import org.opencms.main.CmsLog;
 import org.opencms.main.CmsResourceInitException;
@@ -94,7 +95,8 @@ public class CmsPdfResourceHandler implements I_CmsResourceInit {
         CmsResource resource,
         CmsObject cms,
         HttpServletRequest request,
-        HttpServletResponse response) throws CmsResourceInitException, CmsSecurityException {
+        HttpServletResponse response)
+    throws CmsResourceInitException, CmsSecurityException {
 
         // check if the resource was already found or the path starts with '/system/'
         boolean abort = (resource != null) || cms.getRequestContext().getUri().startsWith(CmsWorkplace.VFS_PATH_SYSTEM);
@@ -120,6 +122,9 @@ public class CmsPdfResourceHandler implements I_CmsResourceInit {
             } catch (CmsSecurityException e) {
                 LOG.warn(e.getLocalizedMessage(), e);
                 throw e;
+            } catch (CmsVfsResourceNotFoundException e) {
+                LOG.warn(e.getLocalizedMessage(), e);
+                return null;
             } catch (CmsPdfLink.CmsPdfLinkParseException e) {
                 // not a valid PDF link, just continue with the resource init chain
                 LOG.warn(e.getLocalizedMessage(), e);
@@ -164,7 +169,13 @@ public class CmsPdfResourceHandler implements I_CmsResourceInit {
         cmsForJspExecution.getRequestContext().setLocale(locale);
         cmsForJspExecution.getRequestContext().setSiteRoot("");
         byte[] result = null;
-        String cacheParams = formatter.getStructureId() + ";" + formatter.getDateLastModified() + ";" + locale;
+        String cacheParams = formatter.getStructureId()
+            + ";"
+            + formatter.getDateLastModified()
+            + ";"
+            + locale
+            + ";"
+            + request.getQueryString();
         String cacheName = m_pdfCache.getCacheName(content, cacheParams);
         if (cms.getRequestContext().getCurrentProject().isOnlineProject()) {
             result = m_pdfCache.getCacheContent(cacheName);
@@ -237,7 +248,8 @@ public class CmsPdfResourceHandler implements I_CmsResourceInit {
         CmsObject cms,
         HttpServletRequest request,
         HttpServletResponse response,
-        String uri) throws Exception {
+        String uri)
+    throws Exception {
 
         String options = request.getParameter(CmsPdfThumbnailLink.PARAM_OPTIONS);
         if (CmsStringUtil.isEmptyOrWhitespaceOnly(options)) {

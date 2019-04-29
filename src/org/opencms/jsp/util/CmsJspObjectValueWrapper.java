@@ -29,10 +29,16 @@ package org.opencms.jsp.util;
 
 import org.opencms.file.CmsObject;
 import org.opencms.gwt.shared.CmsGwtConstants;
+import org.opencms.jsp.CmsJspResourceWrapper;
+import org.opencms.main.CmsException;
+import org.opencms.main.CmsLog;
 import org.opencms.util.CmsStringUtil;
 import org.opencms.xml.types.I_CmsXmlContentValue;
 
 import java.util.Collection;
+import java.util.Date;
+
+import org.apache.commons.logging.Log;
 
 /**
  * Provides access to common object types through wrappers.<p>
@@ -40,6 +46,9 @@ import java.util.Collection;
  * @since 11.0
  */
 public final class CmsJspObjectValueWrapper extends A_CmsJspValueWrapper {
+
+    /** The log object for this class. */
+    private static final Log LOG = CmsLog.getLog(CmsJspObjectValueWrapper.class);
 
     /** Constant for the null (non existing) value. */
     protected static final CmsJspObjectValueWrapper NULL_VALUE_WRAPPER = new CmsJspObjectValueWrapper();
@@ -171,6 +180,38 @@ public final class CmsJspObjectValueWrapper extends A_CmsJspValueWrapper {
     public Object getObjectValue() {
 
         return m_object;
+    }
+
+    /**
+     * Converts the wrapped value to a date. Keeps it as date, if it already is one.<p>
+     *
+     * @return the date
+     *
+     * @see A_CmsJspValueWrapper#getToDate()
+     */
+    @Override
+    public Date getToDate() {
+
+        if (m_object instanceof Date) {
+            return (Date)m_object;
+        }
+        return super.getToDate();
+    }
+
+    /**
+     * @see org.opencms.jsp.util.A_CmsJspValueWrapper#getToResource()
+     */
+    @Override
+    public CmsJspResourceWrapper getToResource() {
+
+        try {
+            return CmsJspElFunctions.convertResource(m_cms, m_object);
+        } catch (CmsException e) {
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Failed to convert object \"" + getToString() + "\" to a resource.", e);
+            }
+            return null;
+        }
     }
 
     /**

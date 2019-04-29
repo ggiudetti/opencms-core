@@ -28,6 +28,7 @@
 package org.opencms.jsp.util;
 
 import org.opencms.file.CmsObject;
+import org.opencms.jsp.CmsJspResourceWrapper;
 import org.opencms.main.CmsException;
 import org.opencms.main.CmsLog;
 import org.opencms.main.OpenCms;
@@ -117,6 +118,9 @@ abstract class A_CmsJspValueWrapper extends AbstractCollection<String> {
     /** The log object for this class. */
     private static final Log LOG = CmsLog.getLog(A_CmsJspValueWrapper.class);
 
+    /** Date information as instance date bean. */
+    private CmsJspInstanceDateBean m_instanceDate;
+
     /** The wrapped OpenCms user context. */
     protected CmsObject m_cms;
 
@@ -131,6 +135,9 @@ abstract class A_CmsJspValueWrapper extends AbstractCollection<String> {
 
     /** Image bean instance created from the wrapped value. */
     private CmsJspImageBean m_imageBean;
+
+    /** Resource created from the wrapped value. */
+    private CmsJspResourceWrapper m_resource;
 
     /** The lazy initialized Map that checks if a Object is equal. */
     private Map<Object, Boolean> m_isEqual;
@@ -435,6 +442,18 @@ abstract class A_CmsJspValueWrapper extends AbstractCollection<String> {
     }
 
     /**
+     * Converts a date to an instance date bean.
+     * @return the instance date bean.
+     */
+    public CmsJspInstanceDateBean getToInstanceDate() {
+
+        if (m_instanceDate == null) {
+            m_instanceDate = new CmsJspInstanceDateBean(getToDate(), m_cms.getRequestContext().getLocale());
+        }
+        return m_instanceDate;
+    }
+
+    /**
      * Parses the wrapped value to a Long integer.<p>
      *
      * Note that the result is an Object of type {@link java.lang.Long},
@@ -491,6 +510,24 @@ abstract class A_CmsJspValueWrapper extends AbstractCollection<String> {
             }
         }
         return m_long;
+    }
+
+    /**
+     * Converts a date to an instance date bean.
+     * @return the instance date bean.
+     */
+    public CmsJspResourceWrapper getToResource() {
+
+        if (m_resource == null) {
+            try {
+                m_resource = CmsJspElFunctions.convertResource(m_cms, getToString());
+            } catch (CmsException e) {
+                if (LOG.isInfoEnabled()) {
+                    LOG.info("Failed to convert wrapper \"" + getToString() + "\" to a resource.", e);
+                }
+            }
+        }
+        return m_resource;
     }
 
     /**
