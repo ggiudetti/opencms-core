@@ -78,6 +78,9 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
     /** The serial version id. */
     private static final long serialVersionUID = 2285680951218629093L;
 
+    /** Flag, indicating if the contents should be cacheable. */
+    private boolean m_cacheable;
+    
     /** Flag, indicating if the create option should be displayed. */
     private boolean m_canCreate;
 
@@ -129,6 +132,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
      * @param editable if editable
      * @param canCreate if new resources may be created
      * @param canDelete if the resource may be deleted
+     * @param cacheable if the resource may be cached
      * @param creationSiteMap the create location sub site
      * @param postCreateHandler the post create handler
      * @param context the page context
@@ -141,6 +145,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         boolean editable,
         boolean canCreate,
         boolean canDelete,
+        boolean cacheable,
         String creationSiteMap,
         String postCreateHandler,
         PageContext context,
@@ -152,6 +157,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
             CmsObject cms = CmsFlexController.getCmsObject(request);
             Locale locale = cms.getRequestContext().getLocale();
             boolean isOnline = cms.getRequestContext().getCurrentProject().isOnlineProject();
+            cacheable = (isOnline ? cacheable : false);
             CmsJspStandardContextBean contextBean = CmsJspStandardContextBean.getInstance(request);
             CmsContainerElementBean parentElement = contextBean.getElement();
 
@@ -188,7 +194,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
                             null,
                             locale,
                             false,
-                            isOnline,
+                            cacheable,
                             CmsRequestUtil.createParameterMap(element.getSettings()),
                             CmsRequestUtil.getAtrributeMap(request),
                             request,
@@ -224,7 +230,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         ServletRequest request,
         ServletResponse response) {
 
-        displayAction(element, formatter, false, false, false, null, null, context, request, response);
+        displayAction(element, formatter, false, false, false, false, null, null, context, request, response);
     }
 
     /**
@@ -236,6 +242,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
      * @param editable if editable
      * @param canCreate if new resources may be created
      * @param canDelete if the resource may be deleted
+     * @param cacheable if the resource may be cached
      * @param creationSiteMap the create location sub site
      * @param postCreateHandler the post create handler
      * @param context the page context
@@ -249,6 +256,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         boolean editable,
         boolean canCreate,
         boolean canDelete,
+        boolean cacheable,
         String creationSiteMap,
         String postCreateHandler,
         PageContext context,
@@ -266,6 +274,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
             editable,
             canCreate,
             canDelete,
+            cacheable,
             creationSiteMap,
             postCreateHandler,
             context,
@@ -346,6 +355,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
                     m_editable,
                     m_canCreate,
                     m_canDelete,
+                    m_cacheable,
                     m_creationSiteMap,
                     m_postCreateHandler,
                     pageContext,
@@ -377,6 +387,16 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         }
 
         return EVAL_BODY_BUFFERED;
+    }
+    
+    /**
+     * Returns the cacheable.<p>
+     *
+     * @return the cacheable
+     */
+    public boolean getCacheble() {
+
+         return m_cacheable;
     }
 
     /**
@@ -429,12 +449,29 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
         m_parameterMap.clear();
         m_displayFormatterPaths.clear();
         m_displayFormatterIds.clear();
-        m_settings = null;
+        m_settings = null; 
         m_passSettings = false;
-        m_editable = false;
+        m_editable = false; 
+        m_cacheable = false;
         m_value = null;
     }
 
+    /** Setter for the "cacheable" attribute of the tag.
+     * @param cacheable value of the tag's attribute "cacheable".
+     */
+    public void setcacheable(boolean cacheable) {
+
+         m_cacheable = cacheable;
+    }
+
+    /** Setter for the "cacheable" attribute of the tag.
+     * @param cacheable value of the tag's attribute "cacheable".
+     */
+    public void setcacheable(String cacheable) {
+
+         m_cacheable = Boolean.valueOf(cacheable).booleanValue();
+    }
+    
     /** Setter for the "create" attribute of the tag.
      * @param canCreate value of the tag's attribute "create".
      */
@@ -442,7 +479,7 @@ public class CmsJspTagDisplay extends BodyTagSupport implements I_CmsJspTagParam
 
         m_canCreate = canCreate;
     }
-
+ 
     /** Setter for the "create" attribute of the tag.
      * @param canCreate value of the tag's attribute "create".
      */

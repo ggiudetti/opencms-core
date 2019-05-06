@@ -163,6 +163,9 @@ public class CmsJspTagContainer extends BodyTagSupport implements TryCatchFinall
 
     /** The container setting presets. */
     private HashMap<String, String> m_settingPresets;
+    
+    /** Force the body to show if it is not empty. */
+    private boolean m_showBody;
 
     /** The tag attribute value. */
     private String m_tag;
@@ -606,7 +609,12 @@ public class CmsJspTagContainer extends BodyTagSupport implements TryCatchFinall
                         }
                     }
                 }
-                if ((numRenderedElements == 0) && (m_bodyContent != null) && CmsJspTagEditable.isEditableRequest(req)) {
+                if ((((m_bodyContent != null) && (!"".equals(m_bodyContent)))
+                    && m_showBody
+                    && (numRenderedElements == 0))
+                    || ((numRenderedElements == 0)
+                        && (m_bodyContent != null)
+                        && CmsJspTagEditable.isEditableRequest(req))) {
                     // the container is empty, print the evaluated body content
                     pageContext.getOut().print(m_bodyContent);
                 }
@@ -855,6 +863,16 @@ public class CmsJspTagContainer extends BodyTagSupport implements TryCatchFinall
         }
     }
 
+    /**
+     * Sets if this container should show its body content in the online project too<p>
+     *
+     * @param showbody if this container should show its body
+     */
+    public void setshowbody(String showbody) {
+
+         m_showBody = Boolean.parseBoolean(showbody);
+    }
+    
     /**
      * Sets the tag attribute.<p>
      *
@@ -1621,6 +1639,7 @@ public class CmsJspTagContainer extends BodyTagSupport implements TryCatchFinall
         m_tagClass = null;
         m_detailView = false;
         m_detailOnly = false;
+        m_showBody = false;
         m_width = null;
         m_editableBy = null;
         m_bodyContent = null;

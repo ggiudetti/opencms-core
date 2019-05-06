@@ -2161,6 +2161,14 @@
         	<required>false</required>
             <rtexprvalue>true</rtexprvalue>
         </attribute>
+        <attribute>
+          <description><![CDATA[
+            Force showing the body content in the online project if it is not empty and there is no content rendered.
+          ]]></description>
+          <name>showbody</name>
+          <required>false</required>
+          <rtexprvalue>true</rtexprvalue>
+        </attribute>
     </tag>
     <tag>
         <description><![CDATA[
@@ -2281,6 +2289,16 @@
             <rtexprvalue>true</rtexprvalue>
             <type>java.lang.String</type>
         </attribute>
+        <attribute>
+            <description><![CDATA[
+              <p>Flag to indicate if the output should be cached. This must be set to "false" if the tag is used inside the body
+                of a <code>&lt;cms:container&gt;</code>. </p>
+              <p><em>Default: "true".</em></p>
+            ]]></description>
+            <name>cacheable</name>
+            <required>false</required>
+            <rtexprvalue>true</rtexprvalue>
+        </attribute>
     </tag>
         <tag>
         <description><![CDATA[
@@ -2387,7 +2405,16 @@
             <rtexprvalue>true</rtexprvalue>
             <type>java.lang.String</type>
         </attribute>
-
+        <attribute>
+            <description><![CDATA[
+              <p>Flag to indicate if the output should be cached. This must be set to "false" if the tag is used inside the body
+                of a <code>&lt;cms:container&gt;</code>. </p>
+              <p><em>Default: "true".</em></p>
+            ]]></description>
+            <name>cacheable</name>
+            <required>false</required>
+            <rtexprvalue>true</rtexprvalue>
+        </attribute>
     </tag>
     <tag>
         <description><![CDATA[

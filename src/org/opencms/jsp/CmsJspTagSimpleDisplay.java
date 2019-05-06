@@ -66,6 +66,10 @@ public class CmsJspTagSimpleDisplay extends BodyTagSupport implements I_CmsJspTa
     /** The serial version id. */
     private static final long serialVersionUID = 2285680951218629093L;
 
+
+    /** Flag, indicating if the contents should be cacheable. */
+    private boolean m_cacheable;
+    
     /** Flag, indicating if the create option should be displayed. */
     private boolean m_canCreate;
 
@@ -163,6 +167,7 @@ public class CmsJspTagSimpleDisplay extends BodyTagSupport implements I_CmsJspTa
                     m_editable,
                     m_canCreate,
                     m_canDelete,
+                    m_cacheable,
                     m_creationSiteMap,
                     m_postCreateHandler,
                     pageContext,
@@ -196,6 +201,16 @@ public class CmsJspTagSimpleDisplay extends BodyTagSupport implements I_CmsJspTa
         return EVAL_BODY_BUFFERED;
     }
 
+    /**
+     * Returns the cacheable.<p>
+     *
+     * @return the cacheable
+     */
+    public boolean getCacheble() {
+
+         return m_cacheable;
+    }
+    
     /**
      * Returns the editable.<p>
      *
@@ -250,6 +265,22 @@ public class CmsJspTagSimpleDisplay extends BodyTagSupport implements I_CmsJspTa
         m_value = null;
     }
 
+    /** Setter for the "cacheable" attribute of the tag.
+     * @param cacheable value of the tag's attribute "cacheable".
+     */
+    public void setcacheable(boolean cacheable) {
+
+         m_cacheable = cacheable;
+    }
+
+    /** Setter for the "cacheable" attribute of the tag.
+     * @param cacheable value of the tag's attribute "cacheable".
+     */
+    public void setcacheable(String cacheable) {
+
+         m_cacheable = Boolean.valueOf(cacheable).booleanValue();
+    }
+    
     /** Setter for the "create" attribute of the tag.
      * @param canCreate value of the tag's attribute "create".
      */
