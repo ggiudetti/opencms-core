@@ -29,6 +29,7 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 
+
 /**
  * Descrive come mappare il contenuto di un oggetto associato rispetto a un certo locale:
  * <mapping type="dynamic" class="org.opencms.search.fields.CmsRelatedSearchFieldMapping">it|Localita,it|Titolo</mapping>
@@ -197,7 +198,7 @@ public class CmsRelatedSearchFieldMapping implements I_CmsSearchFieldMapping {
                             I_CmsXmlContentValue value = xmlContent.getValue(
                                 normalizeParam(subParamParts[1], subParamParts[0]),
                                 new Locale(subParamParts[0]));
-                            if (handler.isSearchable(value)) {
+                            if ((value != null) && handler.isSearchable(value)) {
                                 // the content value is searchable
                                 String extracted = value.getPlainText(cms);
                                 if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(extracted)) {
