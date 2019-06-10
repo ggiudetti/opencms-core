@@ -74,6 +74,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.servlet.ServletResponse;
 
@@ -168,6 +169,27 @@ public class CmsSolrIndex extends CmsSearchIndex {
     /** A constant for UTF-8 charset. */
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
+    /**
+     * Returns the resource type for the given root path.<p>
+     *
+     * @param cms the current CMS context
+     * @param rootPath the root path of the resource to get the type for
+     *
+     * @return the resource type for the given root path
+     */
+    public static final String getType(CmsObject cms, String rootPath) {
+
+        String type = null;
+        CmsSolrIndex index = CmsSearchManager.getIndexSolr(cms, null);
+        if (index != null) {
+            I_CmsSearchDocument doc = index.getDocument(CmsSearchField.FIELD_PATH, rootPath);
+            if (doc != null) {
+                type = doc.getFieldValueAsString(CmsSearchField.FIELD_TYPE);
+            }
+        }
+        return type;
+    }
+
     /** The embedded Solr client for this index. */
     SolrClient m_solr;
 
@@ -199,27 +221,6 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
-     * Returns the resource type for the given root path.<p>
-     *
-     * @param cms the current CMS context
-     * @param rootPath the root path of the resource to get the type for
-     *
-     * @return the resource type for the given root path
-     */
-    public static final String getType(CmsObject cms, String rootPath) {
-
-        String type = null;
-        CmsSolrIndex index = CmsSearchManager.getIndexSolr(cms, null);
-        if (index != null) {
-            I_CmsSearchDocument doc = index.getDocument(CmsSearchField.FIELD_PATH, rootPath);
-            if (doc != null) {
-                type = doc.getFieldValueAsString(CmsSearchField.FIELD_TYPE);
-            }
-        }
-        return type;
-    }
-
-    /**
      * @see org.opencms.search.CmsSearchIndex#addConfigurationParameter(java.lang.String, java.lang.String)
      */
     @Override
@@ -241,6 +242,33 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
+     * Checks if the current user is allowed to access non-online indexes.<p>
+     *
+     * To access non-online indexes the current user must be a workplace user at least.<p>
+     *
+     * @param cms the CMS object initialized with the current request context / user
+     *
+     * @throws CmsSearchException thrown if the access is not permitted
+     */
+    private void checkOfflineAccess(CmsObject cms) throws CmsSearchException {
+
+        // If an offline index is being selected, check permissions
+        if (!CmsProject.ONLINE_PROJECT_NAME.equals(getProject())) {
+            // only if the user has the role Workplace user, he is allowed to access the Offline index
+            try {
+                OpenCms.getRoleManager().checkRole(cms, CmsRole.ELEMENT_AUTHOR);
+            } catch (CmsRoleViolationException e) {
+                throw new CmsSearchException(
+                    Messages.get().container(
+                        Messages.LOG_SOLR_ERR_SEARCH_PERMISSION_VIOLATION_2,
+                        getName(),
+                        cms.getRequestContext().getCurrentUser()),
+                    e);
+            }
+        }
+    }
+
+    /**
      * @see org.opencms.search.CmsSearchIndex#createEmptyDocument(org.opencms.file.CmsResource)
      */
     @Override
@@ -252,12 +280,56 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
+     * @see org.opencms.search.CmsSearchIndex#createIndexBackup()
+     */
+    @Override
+    protected String createIndexBackup() {
+
+        if (!isBackupReindexing()) {
+            // if no backup is generated we don't need to do anything
+            return null;
+        }
+        if (m_solr instanceof EmbeddedSolrServer) {
+            EmbeddedSolrServer ser = (EmbeddedSolrServer)m_solr;
+            CoreContainer con = ser.getCoreContainer();
+            SolrCore core = con.getCore(getCoreName());
+            if (core != null) {
+                try {
+                    SolrRequestHandler h = core.getRequestHandler("/replication");
+                    if (h instanceof ReplicationHandler) {
+                        h.handleRequest(
+                            new LocalSolrQueryRequest(core, CmsRequestUtil.createParameterMap("?command=backup")),
+                            new SolrQueryResponse());
+                    }
+                } finally {
+                    core.close();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * @see org.opencms.search.CmsSearchIndex#createIndexWriter(boolean, org.opencms.report.I_CmsReport)
      */
     @Override
     public I_CmsIndexWriter createIndexWriter(boolean create, I_CmsReport report) {
 
         return new CmsSolrIndexWriter(m_solr, this);
+    }
+
+    /**
+     * @see org.opencms.search.CmsSearchIndex#excludeFromIndex(CmsObject, CmsResource)
+     */
+    @Override
+    protected boolean excludeFromIndex(CmsObject cms, CmsResource resource) {
+
+        if (resource.isFolder() || resource.isTemporaryFile()) {
+            // don't index  folders or temporary files for galleries, but pretty much everything else
+            return true;
+        }
+        return false;
+
     }
 
     /**
@@ -302,6 +374,20 @@ public class CmsSolrIndex extends CmsSearchIndex {
             LOG.error(e.getMessage(), e);
         }
         return resultList;
+    }
+
+    /**
+     * Generates a valid core name from the provided name (the index name).
+     * @param name the index name.
+     * @return the core name
+     */
+    private String generateCoreName(final String name) {
+
+        if (name != null) {
+            //TODO: Add more name manipulations to guarantee a valid core name
+            return name.replace(" ", "-");
+        }
+        return null;
     }
 
     /**
@@ -417,6 +503,36 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
+     * @see org.opencms.search.CmsSearchIndex#indexSearcherClose()
+     */
+    @SuppressWarnings("sync-override")
+    @Override
+    protected void indexSearcherClose() {
+
+        // nothing to do here
+    }
+
+    /**
+     * @see org.opencms.search.CmsSearchIndex#indexSearcherOpen(java.lang.String)
+     */
+    @SuppressWarnings("sync-override")
+    @Override
+    protected void indexSearcherOpen(final String path) {
+
+        // nothing to do here
+    }
+
+    /**
+     * @see org.opencms.search.CmsSearchIndex#indexSearcherUpdate()
+     */
+    @SuppressWarnings("sync-override")
+    @Override
+    protected void indexSearcherUpdate() {
+
+        // nothing to do here
+    }
+
+    /**
      * @see org.opencms.search.CmsSearchIndex#initialize()
      */
     @Override
@@ -430,6 +546,28 @@ public class CmsSolrIndex extends CmsSearchIndex {
             LOG.error(ex.getMessage(), ex);
             setEnabled(false);
         }
+    }
+
+    /**
+     * Checks if the given resource should be indexed by this index or not.<p>
+     *
+     * @param res the resource candidate
+     *
+     * @return <code>true</code> if the given resource should be indexed or <code>false</code> if not
+     */
+    protected boolean isIndexing(CmsResource res) {
+
+        if ((res != null) && (getSources() != null)) {
+            I_CmsDocumentFactory result = OpenCms.getSearchManager().getDocumentFactory(res);
+            for (CmsSearchIndexSource source : getSources()) {
+                if (source.isIndexing(res.getRootPath(), CmsSolrDocumentContainerPage.TYPE_CONTAINERPAGE_SOLR)
+                    || source.isIndexing(res.getRootPath(), CmsSolrDocumentXmlContent.TYPE_XMLCONTENT_SOLR)
+                    || source.isIndexing(res.getRootPath(), result.getName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Returns a flag, indicating if the Solr server is not yet set.
@@ -552,21 +690,21 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
-     * Performs the actual search.<p>
-     *
-     * @param cms the current OpenCms context
-     * @param ignoreMaxRows <code>true</code> to return all all requested rows, <code>false</code> to use max rows
-     * @param query the OpenCms Solr query
-     * @param response the servlet response to write the query result to, may also be <code>null</code>
-     * @param ignoreSearchExclude if set to false, only contents with search_exclude unset or "false" will be found - typical for the the non-gallery case
-     * @param filter the resource filter to use
-     *
-     * @return the found documents
-     *
-     * @throws CmsSearchException if something goes wrong
-     *
-     * @see #search(CmsObject, CmsSolrQuery, boolean)
-     */
+    * Performs the actual search.<p>
+    *
+    * @param cms the current OpenCms context
+    * @param ignoreMaxRows <code>true</code> to return all all requested rows, <code>false</code> to use max rows
+    * @param query the OpenCms Solr query
+    * @param response the servlet response to write the query result to, may also be <code>null</code>
+    * @param ignoreSearchExclude if set to false, only contents with search_exclude unset or "false" will be found - typical for the the non-gallery case
+    * @param filter the resource filter to use
+    *
+    * @return the found documents
+    *
+    * @throws CmsSearchException if something goes wrong
+    *
+    * @see #search(CmsObject, CmsSolrQuery, boolean)
+    */
     @SuppressWarnings("unchecked")
     public CmsSolrResultList search(
         CmsObject cms,
@@ -1040,140 +1178,75 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
-     * @see org.opencms.search.CmsSearchIndex#createIndexBackup()
+     * Executes a spell checking Solr query and returns the Solr query response.<p>
+     *
+     * @param cms the CMS object
+     * @param q the query
+     * @return
+     *
+     * @throws CmsSearchException if something goes wrong
      */
-    @Override
-    protected String createIndexBackup() {
+    public Map<String, List<String>> suggest(CmsObject cms, CmsSolrQuery q) throws CmsSearchException {
 
-        if (!isBackupReindexing()) {
-            // if no backup is generated we don't need to do anything
-            return null;
+        try {
+            q.setRequestHandler("/suggest");
+
+            QueryResponse queryResponse = m_solr.query(q);
+
+            return queryResponse.getSuggesterResponse().getSuggestedTerms();
+
+        } catch (Exception e) {
+            throw new CmsSearchException(
+                Messages.get().container(Messages.LOG_SOLR_ERR_SEARCH_EXECUTION_FAILD_1, q),
+                e);
         }
-        if (m_solr instanceof EmbeddedSolrServer) {
-            EmbeddedSolrServer ser = (EmbeddedSolrServer)m_solr;
-            CoreContainer con = ser.getCoreContainer();
-            SolrCore core = con.getCore(getCoreName());
+    }
+
+    /**
+     * Executes a spell checking Solr query and returns the Solr query response.<p>
+     *
+     * @param res the servlet response
+     * @param cms the CMS object
+     * @param q the query
+     *
+     * @throws CmsSearchException if something goes wrong
+     */
+    public void suggest(ServletResponse res, CmsObject cms, CmsSolrQuery q) throws CmsSearchException {
+
+        SolrCore core = null;
+        LocalSolrQueryRequest solrQueryRequest = null;
+        try {
+            q.setRequestHandler("/suggest");
+
+            QueryResponse queryResponse = m_solr.query(q);
+
+            // create and return the result
+            core = m_solr instanceof EmbeddedSolrServer
+            ? ((EmbeddedSolrServer)m_solr).getCoreContainer().getCore(getCoreName())
+            : null;
+
+            SolrQueryResponse solrQueryResponse = new SolrQueryResponse();
+            solrQueryResponse.setAllValues(queryResponse.getResponse());
+
+            // create and initialize the solr request
+            solrQueryRequest = new LocalSolrQueryRequest(core, solrQueryResponse.getResponseHeader());
+            // set the OpenCms Solr query as parameters to the request
+            solrQueryRequest.setParams(q);
+
+            writeResp(res, solrQueryRequest, solrQueryResponse);
+
+        } catch (Exception e) {
+            throw new CmsSearchException(
+                Messages.get().container(Messages.LOG_SOLR_ERR_SEARCH_EXECUTION_FAILD_1, q),
+                e);
+        } finally {
+            if (solrQueryRequest != null) {
+                solrQueryRequest.close();
+            }
             if (core != null) {
-                try {
-                    SolrRequestHandler h = core.getRequestHandler("/replication");
-                    if (h instanceof ReplicationHandler) {
-                        h.handleRequest(
-                            new LocalSolrQueryRequest(core, CmsRequestUtil.createParameterMap("?command=backup")),
-                            new SolrQueryResponse());
-                    }
-                } finally {
-                    core.close();
-                }
+                core.close();
             }
         }
-        return null;
-    }
-
-    /**
-     * @see org.opencms.search.CmsSearchIndex#excludeFromIndex(CmsObject, CmsResource)
-     */
-    @Override
-    protected boolean excludeFromIndex(CmsObject cms, CmsResource resource) {
-
-        if (resource.isFolder() || resource.isTemporaryFile()) {
-            // don't index  folders or temporary files for galleries, but pretty much everything else
-            return true;
-        }
-        return false;
-
-    }
-
-    /**
-     * @see org.opencms.search.CmsSearchIndex#indexSearcherClose()
-     */
-    @SuppressWarnings("sync-override")
-    @Override
-    protected void indexSearcherClose() {
-
-        // nothing to do here
-    }
-
-    /**
-     * @see org.opencms.search.CmsSearchIndex#indexSearcherOpen(java.lang.String)
-     */
-    @SuppressWarnings("sync-override")
-    @Override
-    protected void indexSearcherOpen(final String path) {
-
-        // nothing to do here
-    }
-
-    /**
-     * @see org.opencms.search.CmsSearchIndex#indexSearcherUpdate()
-     */
-    @SuppressWarnings("sync-override")
-    @Override
-    protected void indexSearcherUpdate() {
-
-        // nothing to do here
-    }
-
-    /**
-     * Checks if the given resource should be indexed by this index or not.<p>
-     *
-     * @param res the resource candidate
-     *
-     * @return <code>true</code> if the given resource should be indexed or <code>false</code> if not
-     */
-    protected boolean isIndexing(CmsResource res) {
-
-        if ((res != null) && (getSources() != null)) {
-            I_CmsDocumentFactory result = OpenCms.getSearchManager().getDocumentFactory(res);
-            for (CmsSearchIndexSource source : getSources()) {
-                if (source.isIndexing(res.getRootPath(), CmsSolrDocumentContainerPage.TYPE_CONTAINERPAGE_SOLR)
-                    || source.isIndexing(res.getRootPath(), CmsSolrDocumentXmlContent.TYPE_XMLCONTENT_SOLR)
-                    || source.isIndexing(res.getRootPath(), result.getName())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Checks if the current user is allowed to access non-online indexes.<p>
-     *
-     * To access non-online indexes the current user must be a workplace user at least.<p>
-     *
-     * @param cms the CMS object initialized with the current request context / user
-     *
-     * @throws CmsSearchException thrown if the access is not permitted
-     */
-    private void checkOfflineAccess(CmsObject cms) throws CmsSearchException {
-
-        // If an offline index is being selected, check permissions
-        if (!CmsProject.ONLINE_PROJECT_NAME.equals(getProject())) {
-            // only if the user has the role Workplace user, he is allowed to access the Offline index
-            try {
-                OpenCms.getRoleManager().checkRole(cms, CmsRole.ELEMENT_AUTHOR);
-            } catch (CmsRoleViolationException e) {
-                throw new CmsSearchException(
-                    Messages.get().container(
-                        Messages.LOG_SOLR_ERR_SEARCH_PERMISSION_VIOLATION_2,
-                        getName(),
-                        cms.getRequestContext().getCurrentUser()),
-                    e);
-            }
-        }
-    }
-
-    /**
-     * Generates a valid core name from the provided name (the index name).
-     * @param name the index name.
-     * @return the core name
-     */
-    private String generateCoreName(final String name) {
-
-        if (name != null) {
-            //TODO: Add more name manipulations to guarantee a valid core name
-            return name.replace(" ", "-");
-        }
-        return null;
     }
 
     /**

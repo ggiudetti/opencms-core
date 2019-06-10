@@ -94,7 +94,12 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
          * A constant for the '/spell' request handler of the embedded Solr server.
          * This handler is reachable under "/opencms/opencms/handleSolrSpell".<p>
          */
-        SolrSpell
+        SolrSpell,
+        /**
+         * A constant for the '/suggest' request handler of the embedded Solr server.
+         * This handler is reachable under "/opencms/opencms/handleSolrSuggest".<p>
+         */
+        SolrSuggest
     }
 
     /** A constant for the optional 'baseUri' parameter. */
@@ -136,42 +141,27 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
     }
 
     /**
-     * @see org.opencms.main.I_CmsRequestHandler#getHandlerNames()
+     * Returns the base URI.<p>
+     *
+     * @param req the servlet request
+     * @param cms the CmsObject
+     *
+     * @return the base URI
      */
-    public String[] getHandlerNames() {
+    private String getBaseUri(HttpServletRequest req, CmsObject cms) {
 
-        return CmsStringUtil.enumNameToStringArray(HANDLER_NAMES.values());
-    }
-
-    /**
-     * @see org.opencms.main.I_CmsRequestHandler#handle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.String)
-     */
-    public void handle(HttpServletRequest req, HttpServletResponse res, String name) throws IOException {
-
-        final HANDLER_NAMES handlerName = HANDLER_NAMES.valueOf(name);
-        if (handlerName != null) {
-            try {
-                Context context = initializeRequest(req, res);
-                if ((context.m_params.get(CommonParams.Q) != null) || (context.m_params.get(CommonParams.FQ) != null)) {
-                    switch (handlerName) {
-                        case SolrSelect:
-                            context.m_index.select(res, context.m_cms, context.m_query, true);
-                            break;
-                        case SolrSpell:
-                            context.m_index.spellCheck(res, context.m_cms, context.m_query);
-                            break;
-                        default:
-                            break;
-                    }
+        String baseUri = req.getParameter(PARAM_BASE_URI);
+        if (CmsStringUtil.isEmptyOrWhitespaceOnly(baseUri)) {
+            String referer = req.getHeader(HEADER_REFERER_KEY);
+            CmsSite site = OpenCms.getSiteManager().getSiteForSiteRoot(cms.getRequestContext().getSiteRoot());
+            if (site != null) {
+                String prefix = site.getServerPrefix(cms, "/") + OpenCms.getStaticExportManager().getVfsPrefix();
+                if ((referer != null) && referer.startsWith(prefix)) {
+                    baseUri = referer.substring(prefix.length());
                 }
-            } catch (Exception e) {
-                res.setStatus(HttpServletResponse.SC_EXPECTATION_FAILED);
-                String message = Messages.get().getBundle().key(Messages.GUI_SOLR_UNEXPECTED_ERROR_0);
-                String formattedException = CmsException.getStackTraceAsString(e).replace("\n", "<br/>");
-                res.getWriter().println(
-                    Messages.get().getBundle().key(Messages.GUI_SOLR_ERROR_HTML_1, message + formattedException));
             }
         }
+        return baseUri;
     }
 
     /**
@@ -197,6 +187,48 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
             cms.getRequestContext().setUri(baseUri);
         }
         return cms;
+    }
+
+    /**
+     * @see org.opencms.main.I_CmsRequestHandler#getHandlerNames()
+     */
+    public String[] getHandlerNames() {
+
+        return CmsStringUtil.enumNameToStringArray(HANDLER_NAMES.values());
+    }
+
+    /**
+     * @see org.opencms.main.I_CmsRequestHandler#handle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.String)
+     */
+    public void handle(HttpServletRequest req, HttpServletResponse res, String name) throws IOException {
+
+        final HANDLER_NAMES handlerName = HANDLER_NAMES.valueOf(name);
+        if (handlerName != null) {
+            try {
+                Context context = initializeRequest(req, res);
+                if ((context.m_params.get(CommonParams.Q) != null) || (context.m_params.get(CommonParams.FQ) != null)) {
+                    switch (handlerName) {
+                        case SolrSelect:
+                            context.m_index.select(res, context.m_cms, context.m_query, true);
+                            break;
+                        case SolrSpell:
+                            context.m_index.spellCheck(res, context.m_cms, context.m_query);
+                            break;
+                        case SolrSuggest:
+                            context.m_index.suggest(res, context.m_cms, context.m_query);
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            } catch (Exception e) {
+                res.setStatus(HttpServletResponse.SC_EXPECTATION_FAILED);
+                String message = Messages.get().getBundle().key(Messages.GUI_SOLR_UNEXPECTED_ERROR_0);
+                String formattedException = CmsException.getStackTraceAsString(e).replace("\n", "<br/>");
+                res.getWriter().println(
+                    Messages.get().getBundle().key(Messages.GUI_SOLR_ERROR_HTML_1, message + formattedException));
+            }
+        }
     }
 
     /**
@@ -232,29 +264,5 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
         }
 
         return context;
-    }
-
-    /**
-     * Returns the base URI.<p>
-     *
-     * @param req the servlet request
-     * @param cms the CmsObject
-     *
-     * @return the base URI
-     */
-    private String getBaseUri(HttpServletRequest req, CmsObject cms) {
-
-        String baseUri = req.getParameter(PARAM_BASE_URI);
-        if (CmsStringUtil.isEmptyOrWhitespaceOnly(baseUri)) {
-            String referer = req.getHeader(HEADER_REFERER_KEY);
-            CmsSite site = OpenCms.getSiteManager().getSiteForSiteRoot(cms.getRequestContext().getSiteRoot());
-            if (site != null) {
-                String prefix = site.getServerPrefix(cms, "/") + OpenCms.getStaticExportManager().getVfsPrefix();
-                if ((referer != null) && referer.startsWith(prefix)) {
-                    baseUri = referer.substring(prefix.length());
-                }
-            }
-        }
-        return baseUri;
     }
 }
