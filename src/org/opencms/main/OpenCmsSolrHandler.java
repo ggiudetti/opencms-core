@@ -95,7 +95,13 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
          * A constant for the '/spell' request handler of the embedded Solr server.
          * This handler is reachable under "/opencms/opencms/handleSolrSpell".<p>
          */
-        SolrSpell
+        SolrSpell,
+
+        /**
+         * A constant for the '/suggest' request handler of the embedded Solr server.
+         * This handler is reachable under "/opencms/opencms/handleSolrSuggest".<p>
+         */
+        SolrSuggest
     }
 
     /** The log object for this class. */
@@ -163,6 +169,9 @@ public class OpenCmsSolrHandler extends HttpServlet implements I_CmsRequestHandl
                             break;
                         case SolrSpell:
                             context.m_index.spellCheck(res, context.m_cms, context.m_query);
+                            break;
+                        case SolrSuggest:
+                            context.m_index.suggest(res, context.m_cms, context.m_query);
                             break;
                         default:
                             break;

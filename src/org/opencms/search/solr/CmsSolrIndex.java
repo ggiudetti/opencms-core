@@ -79,6 +79,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -150,6 +151,10 @@ public class CmsSolrIndex extends CmsSearchIndex {
 
     /** Constant for additional parameter to disable the spell handler (except for debug mode). */
     private static final String SOLR_HANDLER_DISABLE_SPELL = "handle.solr.disableSpellHandler";
+    
+    /** Constant for additional parameter to disable the suggest handler (except for debug mode). */
+    private static final String SOLR_HANDLER_DISABLE_SUGGEST = "handle.solr.disableSuggestHandler";
+    
     /** The solr exclude property. */
     public static final String PROPERTY_SEARCH_EXCLUDE_VALUE_SOLR = "solr";
 
@@ -242,6 +247,9 @@ public class CmsSolrIndex extends CmsSearchIndex {
 
     /** Flag, indicating if the spellcheck handler is disabled for the index. */
     private boolean m_handlerSpellDisabled;
+    
+    /** Flag, indicating if the suggets handler is disabled for the index. */
+    private boolean m_handlerSuggestDisabled;
 
     /** The maximal number of results to process for search queries. */
     int m_maxProcessedResults = -2; // special value for not initialized.
@@ -353,6 +361,11 @@ public class CmsSolrIndex extends CmsSearchIndex {
             case SOLR_HANDLER_DISABLE_SPELL:
                 if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(value)) {
                     m_handlerSpellDisabled = value.trim().toLowerCase().equals("true");
+                }
+                break;
+            case SOLR_HANDLER_DISABLE_SUGGEST:
+                if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(value)) {
+                    m_handlerSuggestDisabled = value.trim().toLowerCase().equals("true");
                 }
                 break;
             case SOLR_SEARCH_MAX_PROCESSED_RESULTS:
@@ -1452,6 +1465,78 @@ public class CmsSolrIndex extends CmsSearchIndex {
     }
 
     /**
+     * Executes a suggest Solr query and returns the Solr query response.<p>
+     *
+     * @param cms the CMS object
+     * @param q the query
+     * @return
+     *
+     * @throws CmsSearchException if something goes wrong
+     */
+    public Map<String, List<String>> suggest(CmsObject cms, CmsSolrQuery q) throws CmsSearchException {
+
+        try {
+            q.setRequestHandler("/suggest");
+
+            QueryResponse queryResponse = m_solr.query(q);
+
+            return queryResponse.getSuggesterResponse().getSuggestedTerms();
+
+        } catch (Exception e) {
+            throw new CmsSearchException(
+                Messages.get().container(Messages.LOG_SOLR_ERR_SEARCH_EXECUTION_FAILD_1, q),
+                e);
+        }
+    }
+
+    /**
+     * Executes a suggest Solr query and returns the Solr query response.<p>
+     *
+     * @param res the servlet response
+     * @param cms the CMS object
+     * @param q the query
+     *
+     * @throws CmsSearchException if something goes wrong
+     */
+    public void suggest(ServletResponse res, CmsObject cms, CmsSolrQuery q) throws CmsSearchException {
+
+        throwExceptionIfSafetyRestrictionsAreViolated(cms, q, true);
+        SolrCore core = null;
+        LocalSolrQueryRequest solrQueryRequest = null;
+        try {
+            q.setRequestHandler("/suggest");
+
+            QueryResponse queryResponse = m_solr.query(q);
+
+            // create and return the result
+            core = m_solr instanceof EmbeddedSolrServer
+            ? ((EmbeddedSolrServer)m_solr).getCoreContainer().getCore(getCoreName())
+            : null;
+
+            SolrQueryResponse solrQueryResponse = new SolrQueryResponse();
+            solrQueryResponse.setAllValues(queryResponse.getResponse());
+
+            // create and initialize the solr request
+            solrQueryRequest = new LocalSolrQueryRequest(core, solrQueryResponse.getResponseHeader());
+            // set the OpenCms Solr query as parameters to the request
+            solrQueryRequest.setParams(q);
+
+            writeResp(res, solrQueryRequest, solrQueryResponse);
+
+        } catch (Exception e) {
+            throw new CmsSearchException(
+                Messages.get().container(Messages.LOG_SOLR_ERR_SEARCH_EXECUTION_FAILD_1, q),
+                e);
+        } finally {
+            if (solrQueryRequest != null) {
+                solrQueryRequest.close();
+            }
+            if (core != null) {
+                core.close();
+            }
+        }
+    }
+    /**
      * @see org.opencms.search.CmsSearchIndex#createIndexBackup()
      */
     @Override
@@ -1630,6 +1715,9 @@ public class CmsSolrIndex extends CmsSearchIndex {
         if (!isDebug(cms, query)) {
             if (isSpell) {
                 if (m_handlerSpellDisabled) {
+                    throw new CmsSearchException(Messages.get().container(Messages.GUI_HANDLER_REQUEST_NOT_ALLOWED_0));
+                }
+                if (m_handlerSuggestDisabled) {
                     throw new CmsSearchException(Messages.get().container(Messages.GUI_HANDLER_REQUEST_NOT_ALLOWED_0));
                 }
             } else {
