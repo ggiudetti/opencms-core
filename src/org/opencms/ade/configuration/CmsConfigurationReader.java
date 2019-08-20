@@ -122,6 +122,8 @@ public class CmsConfigurationReader {
     /** The error node name. */
     public static final String N_ERROR = "Error";
 
+    public static final String N_EXCLUDE_EXTERNAL_DETAIL_CONTENTS = "ExcludeExternalDetailContents";
+
     /** The folder node name. */
     public static final String N_FOLDER = "Folder";
 
@@ -190,6 +192,9 @@ public class CmsConfigurationReader {
 
     /** Node name for the "Remove all formatters"-option. */
     public static final String N_REMOVE_ALL_FORMATTERS = "RemoveAllFormatters";
+
+    /** Field name for the 'Remove all functions' setting. */
+    public static final String N_REMOVE_ALL_FUNCTIONS = "RemoveAllFunctions";
 
     /** Node name for removed formatters. */
     public static final String N_REMOVE_FORMATTER = "RemoveFormatter";
@@ -385,7 +390,10 @@ public class CmsConfigurationReader {
             CmsXmlVfsFileValue value = (CmsXmlVfsFileValue)addLoc.getValue();
             CmsLink link = value.getLink(m_cms);
             if (link != null) {
-                addFormatters.add(link.getStructureId().toString());
+                CmsUUID structureId = link.getStructureId();
+                if (structureId != null) {
+                    addFormatters.add(structureId.toString());
+                }
             }
         }
         return addFormatters;
@@ -449,32 +457,39 @@ public class CmsConfigurationReader {
 
         boolean createContentsLocally = getBoolean(root, N_CREATE_CONTENTS_LOCALLY);
         boolean preferDetailPagesForLocalContents = getBoolean(root, N_PREFER_DETAIL_PAGES_FOR_LOCAL_CONTENTS);
+        boolean exludeExternalDetailContents = getBoolean(root, N_EXCLUDE_EXTERNAL_DETAIL_CONTENTS);
 
         boolean isModuleConfig = OpenCms.getResourceManager().getResourceType(
             content.getFile().getTypeId()).getTypeName().equals(CmsADEManager.MODULE_CONFIG_TYPE);
 
-        String masterConfig = getString(root.getSubValue(N_MASTER_CONFIG));
-        CmsResource masterConfigResource = null;
-        if (masterConfig != null) {
-            masterConfigResource = m_cms.readResource(masterConfig, CmsResourceFilter.IGNORE_EXPIRATION);
+        List<CmsUUID> masterConfigIds = new ArrayList<>();
+        for (I_CmsXmlContentValueLocation masterConfigLoc : root.getSubValues(N_MASTER_CONFIG)) {
+            CmsUUID id = masterConfigLoc.asId(m_cms);
+            if (id != null) {
+                masterConfigIds.add(id);
+            }
         }
+
+        boolean removeFunctions = false;
+        removeFunctions = getBoolean(root, N_REMOVE_ALL_FUNCTIONS);
+
         Set<CmsUUID> functions = new LinkedHashSet<>();
         for (I_CmsXmlContentValueLocation node : root.getSubValues(N_FUNCTION)) {
             CmsXmlVfsFileValue value = (CmsXmlVfsFileValue)node.getValue();
             CmsLink link = value.getLink(m_cms);
             if (link != null) {
-                functions.add(link.getStructureId());
+                CmsUUID structureId = link.getStructureId();
+                if (structureId != null) {
+                    functions.add(link.getStructureId());
+                }
             }
-        }
-        if (functions.isEmpty()) {
-            functions = null;
         }
 
         CmsADEConfigDataInternal result = new CmsADEConfigDataInternal(
             content.getFile(),
             isModuleConfig,
             basePath,
-            masterConfigResource,
+            masterConfigIds,
             m_resourceTypeConfigs,
             discardInheritedTypes,
             m_propertyConfigs,
@@ -485,7 +500,9 @@ public class CmsConfigurationReader {
             discardInheritedModelPages,
             createContentsLocally,
             preferDetailPagesForLocalContents,
+            exludeExternalDetailContents,
             formatterChangeSet,
+            removeFunctions,
             functions);
         return result;
     }
@@ -586,7 +603,10 @@ public class CmsConfigurationReader {
             CmsXmlVfsFileValue value = (CmsXmlVfsFileValue)removeLoc.getValue();
             CmsLink link = value.getLink(m_cms);
             if (link != null) {
-                removeFormatters.add(link.getStructureId().toString());
+                CmsUUID structureId = link.getStructureId();
+                if (structureId != null) {
+                    removeFormatters.add(structureId.toString());
+                }
             }
         }
         return removeFormatters;

@@ -35,8 +35,11 @@ import org.opencms.json.JSONException;
 import org.opencms.json.JSONObject;
 import org.opencms.main.CmsException;
 import org.opencms.main.OpenCms;
+import org.opencms.ui.A_CmsUI;
 import org.opencms.ui.CmsVaadinUtils;
+import org.opencms.ui.apps.A_CmsWorkplaceApp;
 import org.opencms.ui.apps.CmsFileExplorerConfiguration;
+import org.opencms.util.CmsStringUtil;
 import org.opencms.util.CmsUUID;
 
 /**
@@ -48,11 +51,11 @@ public class CmsFavoriteEntry {
      * Represents the type of the favorite.
      */
     public enum Type {
-    /** Container page editor favorite. */
-    explorerFolder("f"),
+        /** Container page editor favorite. */
+        explorerFolder("f"),
 
-    /** Page favorite. */
-    page("p");
+        /** Page favorite. */
+        page("p");
 
         /** String representing this type in the JSON format. */
         private String m_jsonId;
@@ -108,7 +111,13 @@ public class CmsFavoriteEntry {
     public static final String JSON_STRUCTUREID = "i";
 
     /** JSON key. */
+    public static final String JSON_TITLE = "ti";
+
+    /** JSON key. */
     public static final String JSON_TYPE = "t";
+
+    /** The custom title. */
+    private String m_customTitle;
 
     /** The detail id. */
     private CmsUUID m_detailId;
@@ -142,6 +151,7 @@ public class CmsFavoriteEntry {
         setSiteRoot(obj.optString(JSON_SITEROOT));
         m_structureId = readId(obj, JSON_STRUCTUREID);
         m_type = Type.fromJsonId(obj.optString(JSON_TYPE));
+        m_customTitle = obj.optString(JSON_TITLE);
     }
 
     /**
@@ -161,6 +171,16 @@ public class CmsFavoriteEntry {
             return null;
         }
         return new CmsUUID(strValue);
+    }
+
+    /**
+     * Gets the custom title.
+     *
+     * @return the custom title
+     */
+    public String getCustomTitle() {
+
+        return m_customTitle;
     }
 
     /**
@@ -211,6 +231,20 @@ public class CmsFavoriteEntry {
     public Type getType() {
 
         return m_type;
+    }
+
+    /**
+     * Sets the custom title.
+     *
+     * @param title the custom title
+     */
+    public void setCustomTitle(String title) {
+
+        if (CmsStringUtil.isEmpty(title)) {
+            m_customTitle = null;
+        } else {
+            m_customTitle = title;
+        }
     }
 
     /**
@@ -290,6 +324,10 @@ public class CmsFavoriteEntry {
         if (m_type != null) {
             result.put(JSON_TYPE, "" + m_type.getJsonId());
         }
+
+        if (!CmsStringUtil.isEmptyOrWhitespaceOnly(m_customTitle)) {
+            result.put(JSON_TITLE, m_customTitle);
+        }
         return result;
     }
 
@@ -310,16 +348,15 @@ public class CmsFavoriteEntry {
                 CmsResource folder = cms.readResource(getStructureId(), filter);
                 project = cms.readProject(getProjectId());
                 cms.getRequestContext().setSiteRoot(getSiteRoot());
+                A_CmsUI.get().getWorkplaceSettings().setSite(getSiteRoot());
                 cms.getRequestContext().setCurrentProject(project);
-                String explorerLink = CmsVaadinUtils.getWorkplaceLink()
-                    + "#!"
-                    + CmsFileExplorerConfiguration.APP_ID
-                    + "/"
-                    + getProjectId()
-                    + "!!"
-                    + getSiteRoot()
-                    + "!!"
-                    + cms.getSitePath(folder);
+                String explorerLink = CmsVaadinUtils.getWorkplaceLink(
+                    CmsFileExplorerConfiguration.APP_ID,
+                    getProjectId()
+                        + A_CmsWorkplaceApp.PARAM_SEPARATOR
+                        + getSiteRoot()
+                        + A_CmsWorkplaceApp.PARAM_SEPARATOR
+                        + cms.getSitePath(folder));
                 return explorerLink;
             case page:
                 project = cms.readProject(getProjectId());
@@ -328,6 +365,7 @@ public class CmsFavoriteEntry {
                 String link = null;
                 cms.getRequestContext().setCurrentProject(project);
                 cms.getRequestContext().setSiteRoot(getSiteRoot());
+                A_CmsUI.get().getWorkplaceSettings().setSite(getSiteRoot());
                 if (getDetailId() != null) {
                     detailContent = cms.readResource(getDetailId());
                     link = OpenCms.getLinkManager().substituteLinkForUnknownTarget(
