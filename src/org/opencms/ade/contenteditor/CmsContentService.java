@@ -73,6 +73,7 @@ import org.opencms.relations.CmsCategoryService;
 import org.opencms.search.galleries.CmsGallerySearch;
 import org.opencms.search.galleries.CmsGallerySearchResult;
 import org.opencms.util.CmsFileUtil;
+import org.opencms.util.CmsPair;
 import org.opencms.util.CmsRequestUtil;
 import org.opencms.util.CmsStringUtil;
 import org.opencms.util.CmsUUID;
@@ -177,6 +178,12 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
     /** Mapping client widget names to server side widget classes. */
     private static final Map<String, Class<? extends I_CmsADEWidget>> WIDGET_MAPPINGS = new HashMap<>();
 
+    /** The session cache. */
+    private CmsADESessionCache m_sessionCache;
+
+    /** The current users workplace locale. */
+    private Locale m_workplaceLocale;
+
     static {
         WIDGET_MAPPINGS.put("string", CmsInputWidget.class);
         WIDGET_MAPPINGS.put("select", CmsSelectWidget.class);
@@ -190,12 +197,6 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
         WIDGET_MAPPINGS.put("radio", CmsRadioSelectWidget.class);
         WIDGET_MAPPINGS.put("groupselection", CmsGroupWidget.class);
     }
-
-    /** The session cache. */
-    private CmsADESessionCache m_sessionCache;
-
-    /** The current users workplace locale. */
-    private Locale m_workplaceLocale;
 
     /**
      * Creates a new resource to edit, delegating to an edit handler if edit handler data is passed in.<p>
@@ -902,6 +903,8 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                     int containerWidth = contextInfo.getInt(CmsCntPageData.JSONKEY_WIDTH);
                     int maxElements = contextInfo.getInt(CmsCntPageData.JSONKEY_MAXELEMENTS);
                     boolean detailView = contextInfo.getBoolean(CmsCntPageData.JSONKEY_DETAILVIEW);
+                    boolean isDetailViewContainer = contextInfo.getBoolean(
+                        CmsCntPageData.JSONKEY_ISDETAILVIEWCONTAINER);
                     JSONObject presets = contextInfo.getJSONObject(CmsCntPageData.JSONKEY_PRESETS);
                     HashMap<String, String> presetsMap = new HashMap<String, String>();
                     for (String key : presets.keySet()) {
@@ -914,6 +917,7 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                         null,
                         containerWidth,
                         maxElements,
+                        isDetailViewContainer,
                         detailView,
                         true,
                         Collections.<CmsContainerElement> emptyList(),
@@ -1849,7 +1853,7 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                     if (CmsUUID.isValidUUID(formatterConfigId)) {
                         I_CmsFormatterBean formatter = OpenCms.getADEManager().getCachedFormatters(
                             false).getFormatters().get(new CmsUUID(formatterConfigId));
-                        if (formatterId.equals(formatter.getJspStructureId())) {
+                        if ((formatter != null) && formatterId.equals(formatter.getJspStructureId())) {
                             return formatter;
                         }
                     }
@@ -2366,9 +2370,9 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
             } else if (CmsStringUtil.isNotEmptyOrWhitespaceOnly(value)
                 && !HIDDEN_SETTINGS_WIDGET_NAME.equals(settingsEntry.getValue().getWidget())
                 && !value.equals(values.get(settingsEntry.getKey()))) {
-                values.put(settingsEntry.getKey(), value);
-                hasChangedSettings = true;
-            }
+                    values.put(settingsEntry.getKey(), value);
+                    hasChangedSettings = true;
+                }
         }
         if (hasChangedSettings) {
             containerElement.updateIndividualSettings(values);
@@ -2484,16 +2488,18 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
         Set<String> fieldNames) {
 
         CmsXmlContentErrorHandler errorHandler = content.validate(cms);
-        Map<String, Map<String[], String>> errorsByEntity = new HashMap<String, Map<String[], String>>();
+        Map<String, Map<String[], CmsPair<String, String>>> errorsByEntity = new HashMap<String, Map<String[], CmsPair<String, String>>>();
 
         if (errorHandler.hasErrors()) {
             boolean reallyHasErrors = false;
             for (Entry<Locale, Map<String, String>> localeEntry : errorHandler.getErrors().entrySet()) {
-                Map<String[], String> errors = new HashMap<String[], String>();
+                Map<String[], CmsPair<String, String>> errors = new HashMap<String[], CmsPair<String, String>>();
                 for (Entry<String, String> error : localeEntry.getValue().entrySet()) {
                     I_CmsXmlContentValue value = content.getValue(error.getKey(), localeEntry.getKey());
                     if ((fieldNames == null) || fieldNames.contains(value.getPath())) {
-                        errors.put(getPathElements(content, value), error.getValue());
+                        errors.put(
+                            getPathElements(content, value),
+                            new CmsPair<String, String>(error.getValue(), error.getKey()));
                         reallyHasErrors = true;
                     }
 
@@ -2505,15 +2511,17 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                 }
             }
         }
-        Map<String, Map<String[], String>> warningsByEntity = new HashMap<String, Map<String[], String>>();
+        Map<String, Map<String[], CmsPair<String, String>>> warningsByEntity = new HashMap<String, Map<String[], CmsPair<String, String>>>();
         if (errorHandler.hasWarnings()) {
             boolean reallyHasErrors = false;
             for (Entry<Locale, Map<String, String>> localeEntry : errorHandler.getWarnings().entrySet()) {
-                Map<String[], String> warnings = new HashMap<String[], String>();
+                Map<String[], CmsPair<String, String>> warnings = new HashMap<String[], CmsPair<String, String>>();
                 for (Entry<String, String> warning : localeEntry.getValue().entrySet()) {
                     I_CmsXmlContentValue value = content.getValue(warning.getKey(), localeEntry.getKey());
                     if ((fieldNames == null) || fieldNames.contains(value.getPath())) {
-                        warnings.put(getPathElements(content, value), warning.getValue());
+                        warnings.put(
+                            getPathElements(content, value),
+                            new CmsPair<String, String>(warning.getValue(), warning.getKey()));
                         reallyHasErrors = true;
                     }
                 }
@@ -2539,15 +2547,15 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
         CmsValidationResult validationResult,
         Map<String, CmsXmlContentProperty> settingsConfig) {
 
-        Map<String, Map<String[], String>> errors = validationResult.getErrors();
-        Map<String[], String> entityErrors = errors.get(entity.getId());
+        Map<String, Map<String[], CmsPair<String, String>>> errors = validationResult.getErrors();
+        Map<String[], CmsPair<String, String>> entityErrors = errors.get(entity.getId());
         if (entityErrors == null) {
-            entityErrors = new HashMap<String[], String>();
+            entityErrors = new HashMap<String[], CmsPair<String, String>>();
         }
-        Map<String, Map<String[], String>> warnings = validationResult.getWarnings();
-        Map<String[], String> entityWarnings = warnings.get(entity.getId());
+        Map<String, Map<String[], CmsPair<String, String>>> warnings = validationResult.getWarnings();
+        Map<String[], CmsPair<String, String>> entityWarnings = warnings.get(entity.getId());
         if (entityWarnings == null) {
-            entityWarnings = new HashMap<String[], String>();
+            entityWarnings = new HashMap<String[], CmsPair<String, String>>();
         }
 
         for (CmsEntityAttribute attribute : entity.getAttributes()) {
@@ -2563,9 +2571,13 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                                 String[] path = new String[] {attribute.getAttributeName()};
 
                                 if (SETTINGS_RULE_TYPE_ERROR.equals(prop.getRuleType())) {
-                                    entityErrors.put(path, prop.getError());
+                                    entityErrors.put(
+                                        path,
+                                        new CmsPair<String, String>(prop.getError(), prop.getNiceName()));
                                 } else {
-                                    entityWarnings.put(path, prop.getError());
+                                    entityWarnings.put(
+                                        path,
+                                        new CmsPair<String, String>(prop.getError(), prop.getNiceName()));
                                 }
                             }
                         }
@@ -2584,9 +2596,13 @@ public class CmsContentService extends CmsGwtService implements I_CmsContentServ
                                         attribute.getAttributeName(),
                                         nestedAttribute.getAttributeName()};
                                     if (SETTINGS_RULE_TYPE_ERROR.equals(prop.getRuleType())) {
-                                        entityErrors.put(path, prop.getError());
+                                        entityErrors.put(
+                                            path,
+                                            new CmsPair<String, String>(prop.getError(), prop.getNiceName()));
                                     } else {
-                                        entityWarnings.put(path, prop.getError());
+                                        entityWarnings.put(
+                                            path,
+                                            new CmsPair<String, String>(prop.getError(), prop.getNiceName()));
                                     }
                                 }
                             }

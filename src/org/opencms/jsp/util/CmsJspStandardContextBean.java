@@ -117,8 +117,17 @@ public final class CmsJspStandardContextBean {
      */
     public class CmsContainerElementWrapper extends CmsContainerElementBean {
 
+        /** Cache for the wrapped element parent. */
+        private CmsContainerElementWrapper m_parent;
+
+        /** Cache for the wrapped element type name. */
+        private String m_resourceTypeName;
+
         /** The wrapped element instance. */
         private CmsContainerElementBean m_wrappedElement;
+
+        /** Cache for the wrapped element settings. */
+        private Map<String, CmsJspElementSettingValueWrapper> m_wrappedSettings;
 
         /**
          * Constructor.<p>
@@ -210,8 +219,11 @@ public final class CmsJspStandardContextBean {
          */
         public CmsContainerElementWrapper getParent() {
 
-            CmsContainerElementBean parent = getParentElement(m_wrappedElement);
-            return parent != null ? new CmsContainerElementWrapper(getParentElement(m_wrappedElement)) : null;
+            if (m_parent == null) {
+                CmsContainerElementBean parent = getParentElement(m_wrappedElement);
+                m_parent = (parent != null) ? new CmsContainerElementWrapper(getParentElement(m_wrappedElement)) : null;
+            }
+            return m_parent;
         }
 
         /**
@@ -230,13 +242,16 @@ public final class CmsJspStandardContextBean {
          */
         public String getResourceTypeName() {
 
-            String result = "";
-            try {
-                result = OpenCms.getResourceManager().getResourceType(m_wrappedElement.getResource()).getTypeName();
-            } catch (Exception e) {
-                CmsJspStandardContextBean.LOG.error(e.getLocalizedMessage(), e);
+            if (m_resourceTypeName == null) {
+                m_resourceTypeName = "";
+                try {
+                    m_resourceTypeName = OpenCms.getResourceManager().getResourceType(
+                        m_wrappedElement.getResource()).getTypeName();
+                } catch (Exception e) {
+                    CmsJspStandardContextBean.LOG.error(e.getLocalizedMessage(), e);
+                }
             }
-            return result;
+            return m_resourceTypeName;
         }
 
         /**
@@ -248,7 +263,11 @@ public final class CmsJspStandardContextBean {
          */
         public Map<String, CmsJspElementSettingValueWrapper> getSetting() {
 
-            return CmsCollectionsGenericWrapper.createLazyMap(new SettingsTransformer(m_wrappedElement));
+            if (m_wrappedSettings == null) {
+                m_wrappedSettings = CmsCollectionsGenericWrapper.createLazyMap(
+                    new SettingsTransformer(m_wrappedElement));
+            }
+            return m_wrappedSettings;
         }
 
         /**
@@ -317,6 +336,15 @@ public final class CmsJspStandardContextBean {
         public boolean isGroupContainer(CmsObject cms) throws CmsException {
 
             return m_wrappedElement.isGroupContainer(cms);
+        }
+
+        /**
+         * @see org.opencms.xml.containerpage.CmsContainerElementBean#isHistoryContent()
+         */
+        @Override
+        public boolean isHistoryContent() {
+
+            return m_wrappedElement.isHistoryContent();
         }
 
         /**
@@ -970,6 +998,41 @@ public final class CmsJspStandardContextBean {
     }
 
     /**
+     * Returns a lazy initialized map of wrapped container elements beans by container name suffix.<p>
+     *
+     * So in case there is more than one container where the name end with the given suffix,
+     * a joined list of container elements beans is returned.<p>
+     *
+     * @return a lazy initialized map of wrapped container elements beans by container name suffix
+     *
+     * @see #getElementsInContainer()
+     */
+    public Map<String, List<CmsContainerElementWrapper>> getElementBeansInContainers() {
+
+        return CmsCollectionsGenericWrapper.createLazyMap(obj -> {
+            if (obj instanceof String) {
+                List<CmsContainerElementBean> containerElements = new ArrayList<>();
+                for (CmsContainerBean container : getPage().getContainers().values()) {
+                    if (container.getName().endsWith("-" + obj)) {
+                        for (CmsContainerElementBean element : container.getElements()) {
+                            try {
+                                element.initResource(m_cms);
+                                containerElements.add(new CmsContainerElementWrapper(element));
+                            } catch (Exception e) {
+                                LOG.error(e.getLocalizedMessage(), e);
+                            }
+                        }
+                    }
+                }
+                return containerElements;
+            } else {
+                return null;
+            }
+        });
+
+    }
+
+    /**
      * Returns a lazy initialized map of wrapped element resources by container name.<p>
      *
      * @return the lazy map of element resource wrappers
@@ -1000,9 +1063,13 @@ public final class CmsJspStandardContextBean {
 
     /**
      * Returns a lazy initialized map of wrapped element resources by container name suffix.<p>
-     * So in case there is more than one container where the name end with the given suffix, a joined list of elements is returned.<p>
+     *
+     * So in case there is more than one container where the name end with the given suffix,
+     * a joined list of elements is returned.<p>
      *
      * @return the lazy map of element resource wrappers
+     *
+     * @see #getElementBeansInContainers()
      */
     public Map<String, List<CmsJspResourceWrapper>> getElementsInContainers() {
 
@@ -1798,7 +1865,7 @@ public final class CmsJspStandardContextBean {
                     m_cms.getRequestContext().getUri(),
                     null);
                 result = detailPage != null;
-            } catch (CmsException e) {
+            } catch (Exception e) {
                 LOG.warn(e.getLocalizedMessage(), e);
             }
         }

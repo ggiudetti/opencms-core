@@ -517,7 +517,8 @@ public class CmsSessionManager {
             0,
             null,
             null,
-            ouFqn);
+            ouFqn,
+            false);
         // delete the stored workplace settings, so the session has to receive them again
         session.removeAttribute(CmsWorkplaceManager.SESSION_WORKPLACE_SETTINGS);
 
@@ -566,6 +567,23 @@ public class CmsSessionManager {
      */
     public void updateSessionInfo(CmsObject cms, HttpServletRequest req) {
 
+        updateSessionInfo(cms, req, false);
+    }
+
+    /**
+     * Updates the the OpenCms session data used for quick authentication of users.<p>
+     *
+     * This is required if the user data (current group or project) was changed in
+     * the requested document.<p>
+     *
+     * The user data is only updated if the user was authenticated to the system.
+     *
+     * @param cms the current OpenCms user context
+     * @param req the current request
+     * @param isHeartBeatRequest in case of heart beat requests
+     */
+    public void updateSessionInfo(CmsObject cms, HttpServletRequest req, boolean isHeartBeatRequest) {
+
         if (!cms.getRequestContext().isUpdateSessionEnabled()) {
             // this request must not update the user session info
             // this is true for long running "thread" requests, e.g. during project publish
@@ -585,7 +603,7 @@ public class CmsSessionManager {
             CmsSessionInfo sessionInfo = getSessionInfo(req);
             if (sessionInfo != null) {
                 // update the users session information
-                sessionInfo.update(cms.getRequestContext());
+                sessionInfo.update(cms.getRequestContext(), isHeartBeatRequest);
                 addSessionInfo(sessionInfo);
             } else {
                 HttpSession session = req.getSession(false);

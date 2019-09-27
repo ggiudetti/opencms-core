@@ -137,8 +137,10 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 
@@ -764,9 +766,9 @@ public final class CmsDriverManager implements I_CmsEventListener {
                     dbc.getRequestContext().getSitePath(resource)));
         } else if ((lockType == CmsLockType.EXCLUSIVE)
             && currentLock.isExclusiveOwnedInProjectBy(dbc.currentUser(), dbc.currentProject())) {
-            // the current lock requires no change
-            return;
-        }
+                // the current lock requires no change
+                return;
+            }
 
         // duplicate logic from CmsSecurityManager#hasPermissions() because lock state can't be ignored
         // if another user has locked the file, the current user can never get WRITE permissions with the default check
@@ -3345,7 +3347,7 @@ public final class CmsDriverManager implements I_CmsEventListener {
                     boolean shouldPublishDeletedSubResources = publishList.isUserPublishList()
                         && directPublishResource.getState().isDeleted();
                     if (publishList.isPublishSubResources() || shouldPublishDeletedSubResources) {
-                        addSubResources(dbc, publishList, directPublishResource);
+                        addSubResources(dbc, publishList, directPublishResource, resource -> true);
                     }
                 } else if (directPublishResource.isFile() && !directPublishResource.getState().isUnchanged()) {
 
@@ -5185,7 +5187,8 @@ public final class CmsDriverManager implements I_CmsEventListener {
                 0,
                 null,
                 null,
-                ""));
+                "",
+                false));
         dbc1.clear();
         getUserDriver().createRootOrganizationalUnit(dbc2);
         dbc2.clear();
@@ -10389,7 +10392,7 @@ public final class CmsDriverManager implements I_CmsEventListener {
         Iterator<CmsResource> folderIt = topMovedFolders.iterator();
         while (folderIt.hasNext()) {
             CmsResource folder = folderIt.next();
-            addSubResources(dbc, pubList, folder);
+            addSubResources(dbc, pubList, folder, resource -> !resource.getState().isNew());
         }
         List<CmsResource> missingSubResources = pubList.getMissingSubResources(cms, topMovedFolders);
         if (missingSubResources.isEmpty()) {
@@ -10655,10 +10658,15 @@ public final class CmsDriverManager implements I_CmsEventListener {
      * @param dbc the database context
      * @param publishList the publish list
      * @param directPublishResource the resource to get the sub-resources for
+     * @param additionalFilter an additional test for resources to pass before they are added to the publish list
      *
      * @throws CmsDataAccessException if something goes wrong accessing the database
      */
-    private void addSubResources(CmsDbContext dbc, CmsPublishList publishList, CmsResource directPublishResource)
+    private void addSubResources(
+        CmsDbContext dbc,
+        CmsPublishList publishList,
+        CmsResource directPublishResource,
+        Predicate<CmsResource> additionalFilter)
     throws CmsDataAccessException {
 
         int flags = CmsDriverManager.READMODE_INCLUDE_TREE | CmsDriverManager.READMODE_EXCLUDE_STATE;
@@ -10682,7 +10690,10 @@ public final class CmsDriverManager implements I_CmsEventListener {
             CmsDriverManager.READ_IGNORE_TIME,
             flags | CmsDriverManager.READMODE_ONLY_FOLDERS);
 
-        publishList.addAll(filterResources(dbc, publishList, folderList), true);
+        publishList.addAll(
+            filterResources(dbc, publishList, folderList).stream().filter(additionalFilter).collect(
+                Collectors.toList()),
+            true);
 
         List<CmsResource> fileList = getVfsDriver(dbc).readResourceTree(
             dbc,
@@ -10698,7 +10709,9 @@ public final class CmsDriverManager implements I_CmsEventListener {
             CmsDriverManager.READ_IGNORE_TIME,
             flags | CmsDriverManager.READMODE_ONLY_FILES);
 
-        publishList.addAll(filterResources(dbc, publishList, fileList), true);
+        publishList.addAll(
+            filterResources(dbc, publishList, fileList).stream().filter(additionalFilter).collect(Collectors.toList()),
+            true);
     }
 
     /**
