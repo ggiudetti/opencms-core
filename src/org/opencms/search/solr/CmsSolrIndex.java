@@ -83,6 +83,9 @@ import org.apache.lucene.index.Term;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.embedded.EmbeddedSolrServer;
+import org.apache.solr.client.solrj.response.Group;
+import org.apache.solr.client.solrj.response.GroupCommand;
+import org.apache.solr.client.solrj.response.GroupResponse;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
@@ -763,8 +766,29 @@ public class CmsSolrIndex extends CmsSearchIndex {
             QueryResponse queryResponse = m_solr.query(query);
             long solrTime = System.currentTimeMillis() - startTime;
 
-            // initialize the counts
-            long hitCount = queryResponse.getResults().getNumFound();
+            long hitCount = 0L;
+            List<SolrDocumentList> solrDocs = new ArrayList<SolrDocumentList>();
+            //check for group commands
+            GroupResponse groups = queryResponse.getGroupResponse();
+            if (groups != null) {
+                List<GroupCommand> grpVals = groups.getValues();
+                for (GroupCommand cmd : grpVals) {
+                    String name = cmd.getName();
+                    hitCount += cmd.getMatches();
+                    List<Group> cmdVals = cmd.getValues();
+                    for (Group gVal : cmdVals) {
+                        String val = gVal.getGroupValue();
+                        SolrDocumentList grpRes = gVal.getResult();
+                        long valCount = grpRes.getNumFound();
+                        solrDocs.add(grpRes);
+                    }
+                }
+            } else {
+                // initialize the counts
+                hitCount = queryResponse.getResults().getNumFound();
+                solrDocs.add(queryResponse.getResults());
+            }
+
             start = -1;
             end = -1;
             if ((rows > 0) && (page > 0) && (hitCount > 0)) {
@@ -790,46 +814,48 @@ public class CmsSolrIndex extends CmsSearchIndex {
             // process found documents
             List<CmsSearchResource> allDocs = new ArrayList<CmsSearchResource>();
             int cnt = 0;
-            for (int i = 0; (i < queryResponse.getResults().size()) && (cnt < end); i++) {
-                try {
-                    SolrDocument doc = queryResponse.getResults().get(i);
-                    CmsSolrDocument searchDoc = new CmsSolrDocument(doc);
-                    if (needsPermissionCheck(searchDoc)) {
-                        // only if the document is an OpenCms internal resource perform the permission check
-                        CmsResource resource = filter == null
-                        ? getResource(searchCms, searchDoc)
-                        : getResource(searchCms, searchDoc, filter);
-                        if (resource != null) {
-                            // permission check performed successfully: the user has read permissions!
-                            if (cnt >= start) {
-                                if (m_postProcessor != null) {
-                                    doc = m_postProcessor.process(
-                                        searchCms,
-                                        resource,
-                                        (SolrInputDocument)searchDoc.getDocument());
+            for (SolrDocumentList results : solrDocs) {
+                for (int i = 0; (i < results.size()) && (cnt < end); i++) {
+                    try {
+                        SolrDocument doc = results.get(i);
+                        CmsSolrDocument searchDoc = new CmsSolrDocument(doc);
+                        if (needsPermissionCheck(searchDoc)) {
+                            // only if the document is an OpenCms internal resource perform the permission check
+                            CmsResource resource = filter == null
+                            ? getResource(searchCms, searchDoc)
+                            : getResource(searchCms, searchDoc, filter);
+                            if (resource != null) {
+                                // permission check performed successfully: the user has read permissions!
+                                if (cnt >= start) {
+                                    if (m_postProcessor != null) {
+                                        doc = m_postProcessor.process(
+                                            searchCms,
+                                            resource,
+                                            (SolrInputDocument)searchDoc.getDocument());
+                                    }
+                                    resourceDocumentList.add(new CmsSearchResource(resource, searchDoc));
+                                    if (null != doc) {
+                                        solrDocumentList.add(doc);
+                                    }
+                                    maxScore = maxScore < searchDoc.getScore() ? searchDoc.getScore() : maxScore;
                                 }
-                                resourceDocumentList.add(new CmsSearchResource(resource, searchDoc));
-                                if (null != doc) {
-                                    solrDocumentList.add(doc);
-                                }
-                                maxScore = maxScore < searchDoc.getScore() ? searchDoc.getScore() : maxScore;
+                                allDocs.add(new CmsSearchResource(resource, searchDoc));
+                                cnt++;
+                            } else {
+                                visibleHitCount--;
                             }
-                            allDocs.add(new CmsSearchResource(resource, searchDoc));
-                            cnt++;
                         } else {
-                            visibleHitCount--;
+                            // if permission check is not required for this index,
+                            // add a pseudo resource together with document to the results
+                            resourceDocumentList.add(new CmsSearchResource(PSEUDO_RES, searchDoc));
+                            solrDocumentList.add(doc);
+                            maxScore = maxScore < searchDoc.getScore() ? searchDoc.getScore() : maxScore;
+                            cnt++;
                         }
-                    } else {
-                        // if permission check is not required for this index,
-                        // add a pseudo resource together with document to the results
-                        resourceDocumentList.add(new CmsSearchResource(PSEUDO_RES, searchDoc));
-                        solrDocumentList.add(doc);
-                        maxScore = maxScore < searchDoc.getScore() ? searchDoc.getScore() : maxScore;
-                        cnt++;
+                    } catch (Exception e) {
+                        // should not happen, but if it does we want to go on with the next result nevertheless
+                        LOG.warn(Messages.get().getBundle().key(Messages.LOG_SOLR_ERR_RESULT_ITERATION_FAILED_0), e);
                     }
-                } catch (Exception e) {
-                    // should not happen, but if it does we want to go on with the next result nevertheless
-                    LOG.warn(Messages.get().getBundle().key(Messages.LOG_SOLR_ERR_RESULT_ITERATION_FAILED_0), e);
                 }
             }
             // the last documents were all secret so let's take the last found docs
@@ -854,13 +880,15 @@ public class CmsSolrIndex extends CmsSearchIndex {
             solrDocumentList.setMaxScore(new Float(maxScore));
             solrDocumentList.setNumFound(visibleHitCount);
 
-            queryResponse.getResponse().setVal(
-                queryResponse.getResponse().indexOf(QUERY_RESPONSE_NAME, 0),
-                solrDocumentList);
+            if (groups == null) {
+                queryResponse.getResponse().setVal(
+                    queryResponse.getResponse().indexOf(QUERY_RESPONSE_NAME, 0),
+                    solrDocumentList);
 
-            queryResponse.getResponseHeader().setVal(
-                queryResponse.getResponseHeader().indexOf(QUERY_TIME_NAME, 0),
-                new Integer(new Long(System.currentTimeMillis() - startTime).intValue()));
+                queryResponse.getResponseHeader().setVal(
+                    queryResponse.getResponseHeader().indexOf(QUERY_TIME_NAME, 0),
+                    new Integer(new Long(System.currentTimeMillis() - startTime).intValue()));
+            }
             long highlightEndTime = System.currentTimeMillis();
             SolrCore core = m_solr instanceof EmbeddedSolrServer
             ? ((EmbeddedSolrServer)m_solr).getCoreContainer().getCore(getCoreName())
