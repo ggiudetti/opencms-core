@@ -11,6 +11,7 @@ import java.util.Map;
 
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.response.FacetField;
+import org.apache.solr.client.solrj.response.FieldStatsInfo;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.RangeFacet;
 import org.apache.solr.client.solrj.response.SpellCheckResponse;
@@ -182,6 +183,16 @@ public class CmsSolrResultList extends ArrayList<CmsSearchResource> {
     public List<RangeFacet> getFacetRanges() {
 
         return m_queryResponse.getFacetRanges();
+    }
+
+    /**
+     * Delegator.<p>
+     *
+     * @return the facet query
+     */
+    public Map<String, FieldStatsInfo> getFieldStatsInfo() {
+
+        return m_queryResponse.getFieldStatsInfo();
     }
 
     /**
