@@ -82,6 +82,7 @@ dependencies {
     distribution group: 'com.sun.xml.messaging.saaj', name: 'saaj-impl', version: '1.3.3'
     distribution group: 'com.sun.xml.stream.buffer', name: 'streambuffer', version:'0.9'
     distribution group: 'com.sun.xml.ws', name: 'jaxws-rt', version:'2.1.7'
+    distribution group: 'com.tdunning', name: 't-digest', version: '3.2'
     distribution group: 'com.vaadin', name: 'vaadin-compatibility-server', version: '8.7.1'
     distribution group: 'com.vaadin', name: 'vaadin-compatibility-shared', version: '8.7.1'
     distribution group: 'com.vaadin', name: 'vaadin-push', version:'8.7.1'
