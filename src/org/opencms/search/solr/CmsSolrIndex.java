@@ -1156,7 +1156,9 @@ public class CmsSolrIndex extends CmsSearchIndex {
                 // build the query for getting the results
                 SolrQuery queryForResults = new SolrQuery();
                 queryForResults.setFields(query.getFields());
-                queryForResults.setQuery(query.getQuery());
+                // the query should be generic as we use the ids found before
+                // N.B. to highlight the query the hl.q parameter should be used
+                queryForResults.setQuery(CmsSolrQuery.DEFAULT_QUERY);
     
                 // we add an additional filter, such that we can only find the documents we want to retrieve, as we figured out in the check query.
                 if (!resultSolrIds.isEmpty()) {
