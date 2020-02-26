@@ -153,7 +153,9 @@ public class CmsSolrQuery extends SolrQuery {
 
         setQuery(DEFAULT_QUERY);
         setFields(ALL_RETURN_FIELDS);
-        setRequestHandler(DEFAULT_QUERY_TYPE);
+        // avoid setting a default request handler as it won't be possible to use queries
+        // that need another handler
+        // setRequestHandler(DEFAULT_QUERY_TYPE);
         setRows(DEFAULT_ROWS);
 
         // set the values from the request context
@@ -258,6 +260,8 @@ public class CmsSolrQuery extends SolrQuery {
                 if (!entry.getKey().equals(CommonParams.FQ)) {
                     // add or replace all parameters from the query String
                     setParam(entry.getKey(), entry.getValue());
+                } else if (entry.getKey().equals(CommonParams.QT)) {
+                    setRequestHandler(entry.getValue()[0]);
                 } else {
                     // special handling for filter queries
                     replaceFilterQueries(entry.getValue());
