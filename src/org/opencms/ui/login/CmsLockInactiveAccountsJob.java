@@ -73,6 +73,7 @@ public class CmsLockInactiveAccountsJob implements I_CmsScheduledJob {
                             LOG.info("User is inactive: " + user.getName());
                             if (!testOnly) {
                                 user.getAdditionalInfo().put(CmsLoginController.KEY_ACCOUNT_LOCKED, "true");
+                                user.setEnabled(false);
                                 cms.writeUser(user);
                             }
                             lockedUsers.add(user.getDisplayName(cms, locale));
@@ -104,6 +105,7 @@ public class CmsLockInactiveAccountsJob implements I_CmsScheduledJob {
             template.setAttribute("users", lockedUsers);
             template.toString();
             mail.setHtmlMsg(template.toString());
+            mail.setCharset("UTf-8");
             try {
                 mail.send();
             } catch (Exception e) {
