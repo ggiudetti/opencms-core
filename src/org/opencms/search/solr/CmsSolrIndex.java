@@ -77,6 +77,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -86,6 +87,7 @@ import java.util.stream.Stream;
 
 import javax.servlet.ServletResponse;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
@@ -991,7 +993,7 @@ public class CmsSolrIndex extends CmsSearchIndex {
             int end = start + rows;
             int itemsToCheck = 0 == end ? 0 : Math.max(10, end + (end / 5)); // request 20 percent more, but at least 10 results if permissions are filtered
             // use a set to prevent double entries if multiple check queries are performed.
-            Set<String> resultSolrIds = new HashSet<>(rows); // rows are set before definitely.
+            Set<String> resultSolrIds = new LinkedHashSet<>(rows); // rows are set before definitely.
 
             // counter for the documents found and accessible
             int cnt = 0;
@@ -1162,9 +1164,13 @@ public class CmsSolrIndex extends CmsSearchIndex {
     
                 // we add an additional filter, such that we can only find the documents we want to retrieve, as we figured out in the check query.
                 if (!resultSolrIds.isEmpty()) {
-                    Optional<String> queryFilterString = resultSolrIds.stream().map(a -> '"' + a + '"').reduce(
-                        (a, b) -> a + " OR " + b);
-                    queryForResults.addFilterQuery(CmsSearchField.FIELD_SOLR_ID + ":(" + queryFilterString.get() + ")");
+                    ArrayList<String> orderedResults = new ArrayList<>();
+                    int i = 1;
+                    int max = resultSolrIds.size() + 1; 
+                    for (String id : resultSolrIds) {
+                        orderedResults.add("\"" + id + "\"^" + (max - i++));
+                    }
+                    queryForResults.setQuery(CmsSearchField.FIELD_SOLR_ID + ":(" + StringUtils.join(orderedResults, " OR ") + ")");
                 }
                 queryForResults.setRows(Integer.valueOf(resultSolrIds.size()));
                 queryForResults.setStart(Integer.valueOf(0));
