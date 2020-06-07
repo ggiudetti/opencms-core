@@ -273,9 +273,10 @@ public class CmsJspTagEditable extends BodyTagSupport {
         } else {
             CmsFlexController controller = CmsFlexController.getController(req);
             CmsObject cms = controller.getCmsObject();
-            result = !cms.getRequestContext().getCurrentProject().isOnlineProject()
-                && !CmsResource.isTemporaryFileName(cms.getRequestContext().getUri());
-
+            if (cms != null) {
+                result = !cms.getRequestContext().getCurrentProject().isOnlineProject()
+                    && !CmsResource.isTemporaryFileName(cms.getRequestContext().getUri());
+            }
         }
         return result;
     }
