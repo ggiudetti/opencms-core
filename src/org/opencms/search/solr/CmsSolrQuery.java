@@ -238,7 +238,7 @@ public class CmsSolrQuery extends SolrQuery {
     @Override
     public CmsSolrQuery clone() {
 
-        CmsSolrQuery sq = new CmsSolrQuery(null, CmsRequestUtil.createParameterMap(toString()));
+        CmsSolrQuery sq = new CmsSolrQuery(null, CmsRequestUtil.createParameterMap(toString(), true, null));
         if (m_ignoreExpiration) {
             sq.removeExpiration();
         }
@@ -540,15 +540,6 @@ public class CmsSolrQuery extends SolrQuery {
     public void setTextSearchFields(String... textSearchFields) {
 
         setTextSearchFields(Arrays.asList(textSearchFields));
-    }
-
-    /**
-     * @see org.apache.solr.common.params.ModifiableSolrParams#toString()
-     */
-    @Override
-    public String toString() {
-
-        return CmsEncoder.decode(super.toString());
     }
 
     /**
