@@ -52,6 +52,7 @@ import org.opencms.workplace.explorer.CmsExplorerTypeSettings;
 import org.opencms.xml.containerpage.CmsXmlDynamicFunctionHandler;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 import org.apache.commons.logging.Log;
 
@@ -366,9 +367,11 @@ public class CmsResourceTypeConfig implements I_CmsConfigurationObject<CmsResour
         String destination = CmsStringUtil.joinPaths(folderPath, getNamePattern(true));
         String creationPath = OpenCms.getResourceManager().getNameGenerator().getNewFileName(rootCms, destination, 5);
         // set the content locale
-        rootCms.getRequestContext().setAttribute(
-            CmsRequestContext.ATTRIBUTE_NEW_RESOURCE_LOCALE,
-            userCms.getRequestContext().getLocale());
+        Locale contentLocale = userCms.getRequestContext().getLocale();
+        if (!OpenCms.getLocaleManager().getAvailableLocales(rootCms, folderPath).contains(contentLocale)) {
+            contentLocale = OpenCms.getLocaleManager().getDefaultLocale(rootCms, folderPath);
+        }
+        rootCms.getRequestContext().setAttribute(CmsRequestContext.ATTRIBUTE_NEW_RESOURCE_LOCALE, contentLocale);
         if (modelResource != null) {
             // set the model resource
             rootCms.getRequestContext().setAttribute(CmsRequestContext.ATTRIBUTE_MODEL, modelResource.getRootPath());
@@ -654,7 +657,7 @@ public class CmsResourceTypeConfig implements I_CmsConfigurationObject<CmsResour
             isDetailPagesDisabled() || childConfig.isDetailPagesDisabled(),
             childConfig.isAddDisabled(),
             // a type marked as not creatable, should not be creatable in any sub site
-            isCreateDisabled() && childConfig.isCreateDisabled(),
+            isCreateDisabled() || childConfig.isCreateDisabled(),
             elementView,
             m_localization,
             showInDefaultView,

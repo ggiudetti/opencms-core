@@ -102,6 +102,7 @@ import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.common.util.ContentStreamBase;
 import org.apache.solr.common.util.FastWriter;
 import org.apache.solr.common.util.NamedList;
+import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.core.CoreContainer;
 import org.apache.solr.core.SolrCore;
 import org.apache.solr.handler.ReplicationHandler;
@@ -1310,7 +1311,6 @@ public class CmsSolrIndex extends CmsSearchIndex {
                     }
                 }
                 processTime = System.currentTimeMillis() - startTime - solrPermissionTime - solrResultTime;
-
                 finalMaxScore = Float.valueOf(maxScore);
                 solrDocumentList.setStart(start);
                 solrDocumentList.setMaxScore(finalMaxScore);

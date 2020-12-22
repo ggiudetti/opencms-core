@@ -279,7 +279,7 @@ public class CmsResourceManager {
     private Map<String, String> m_mimeTypes;
 
     /** The URL name generator for XML contents. */
-    private I_CmsFileNameGenerator m_nameGenerator;
+    private I_CmsFileNameGenerator m_nameGenerator = new CmsDefaultFileNameGenerator();
 
     /** A list that contains all resource types added from the XML configuration. */
     private List<I_CmsResourceType> m_resourceTypesFromXml;
@@ -849,9 +849,6 @@ public class CmsResourceManager {
      */
     public I_CmsFileNameGenerator getNameGenerator() {
 
-        if (m_nameGenerator == null) {
-            m_nameGenerator = new CmsDefaultFileNameGenerator();
-        }
         return m_nameGenerator;
     }
 
@@ -1170,6 +1167,9 @@ public class CmsResourceManager {
             type.initialize(cms);
         }
 
+        // This only sets the CmsObject the first time it's called
+        m_nameGenerator.setAdminCms(cms);
+
         if (CmsLog.INIT.isInfoEnabled()) {
             CmsLog.INIT.info(Messages.get().getBundle().key(Messages.INIT_LOADER_CONFIG_FINISHED_0));
         }
@@ -1233,6 +1233,11 @@ public class CmsResourceManager {
             throw new CmsConfigurationException(Messages.get().container(Messages.ERR_NO_CONFIG_AFTER_STARTUP_0));
         }
         m_nameGenerator = nameGenerator;
+
+        if (CmsLog.INIT.isInfoEnabled()) {
+            CmsLog.INIT.info(
+                Messages.get().getBundle().key(Messages.INIT_SET_NAME_GENERATOR_1, nameGenerator.getClass().getName()));
+        }
     }
 
     /**
